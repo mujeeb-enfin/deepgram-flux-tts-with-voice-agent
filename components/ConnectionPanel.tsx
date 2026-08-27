@@ -20,58 +20,21 @@ interface ConnectionPanelProps {
 }
 
 const fluxVoiceOptions = [
-  { value: "flux-kit-en", label: "Kit", agentName: "Kit" },
-  { value: "flux-haley-en", label: "Haley", agentName: "Haley" },
-  { value: "flux-heather-en", label: "Heather", agentName: "Heather" },
-  { value: "flux-priya-en", label: "Priya", agentName: "Priya" },
-  { value: "flux-jack-en", label: "Jack", agentName: "Jack" },
-  { value: "flux-bruce-en", label: "Bruce", agentName: "Bruce" },
-  { value: "flux-rufus-en", label: "Rufus", agentName: "Rufus" },
-  { value: "flux-drew-en", label: "Drew", agentName: "Drew" },
-  { value: "flux-alexis-en", label: "Alexis", agentName: "Alexis" },
+  { value: "flux-kit-en", label: "Kit", agentName: "Kit", "regions": ["IN", "PK", "NP", "LK", "BD"] },
+  { value: "flux-haley-en", label: "Haley", agentName: "Haley", "regions": ["CA"] },
+  { value: "flux-heather-en", label: "Heather", agentName: "Heather", "regions": ["SG", "JP", "KR", "CN", "HK", "TW", "PH"] },
+  { value: "flux-priya-en", label: "Priya", agentName: "Priya", "regions": ["IN", "PK", "NP", "LK", "BD"] },
+  { value: "flux-jack-en", label: "Jack", agentName: "Jack", "regions": ["GB", "IE"] },
+  { value: "flux-bruce-en", label: "Bruce", agentName: "Bruce", "regions": ["AU", "NZ"] },
+  { value: "flux-rufus-en", label: "Rufus", agentName: "Rufus", "regions": ["US"] },
+  { value: "flux-drew-en", label: "Drew", agentName: "Drew", "regions": ["US"] },
+  { value: "flux-alexis-en", label: "Alexis", agentName: "Alexis", "regions": ["US"] },
 ];
 
 export function getAgentNameForVoice(voiceModel: string): string {
   const match = fluxVoiceOptions.find((opt) => opt.value === voiceModel);
   return match?.agentName ?? "Agent";
 }
-
-const regionToFluxVoice: Record<string, string> = {
-  IN: "flux-priya-en",
-  PK: "flux-priya-en",
-  NP: "flux-priya-en",
-  LK: "flux-priya-en",
-  BD: "flux-priya-en",
-  GB: "flux-jack-en",
-  IE: "flux-jack-en",
-  AU: "flux-bruce-en",
-  NZ: "flux-bruce-en",
-  CA: "flux-haley-en",
-  DE: "flux-drew-en",
-  FR: "flux-drew-en",
-  ES: "flux-drew-en",
-  IT: "flux-drew-en",
-  NL: "flux-drew-en",
-  SE: "flux-drew-en",
-  NO: "flux-drew-en",
-  DK: "flux-drew-en",
-  FI: "flux-drew-en",
-  PT: "flux-drew-en",
-  AT: "flux-drew-en",
-  CH: "flux-drew-en",
-  BE: "flux-drew-en",
-  PL: "flux-drew-en",
-  AE: "flux-alexis-en",
-  SA: "flux-alexis-en",
-  QA: "flux-alexis-en",
-  SG: "flux-heather-en",
-  JP: "flux-heather-en",
-  KR: "flux-heather-en",
-  CN: "flux-heather-en",
-  HK: "flux-heather-en",
-  TW: "flux-heather-en",
-  PH: "flux-rufus-en",
-};
 
 export function getFluxVoiceForBrowserRegion(): string | null {
   if (typeof navigator === "undefined") return null;
@@ -80,7 +43,8 @@ export function getFluxVoiceForBrowserRegion(): string | null {
   const regionMatch = browserLanguage.match(/[-_]([A-Z]{2})$/i);
   if (!regionMatch) return null;
   const regionCode = regionMatch[1].toUpperCase();
-  return regionToFluxVoice[regionCode] ?? null;
+  const matched = fluxVoiceOptions.find((opt) => opt.regions.includes(regionCode));
+  return matched?.value ?? null;
 }
 
 const thinkModelOptions = [
