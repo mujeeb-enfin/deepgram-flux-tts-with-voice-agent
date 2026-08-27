@@ -70,13 +70,89 @@ export function getAgentNameForVoice(voiceModel: string): string {
   return match?.agentName ?? "Agent";
 }
 
-export function getFluxVoiceForBrowserRegion(): string | null {
+const timezoneToRegionCode: Record<string, string> = {
+  "Asia/Kolkata": "IN",
+  "Asia/Calcutta": "IN",
+  "Asia/Colombo": "LK",
+  "Asia/Karachi": "PK",
+  "Asia/Kathmandu": "NP",
+  "Asia/Katmandu": "NP",
+  "Asia/Dhaka": "BD",
+  "Asia/Dacca": "BD",
+  "Europe/London": "GB",
+  "Europe/Dublin": "IE",
+  "Europe/Berlin": "DE",
+  "Europe/Paris": "FR",
+  "Europe/Madrid": "ES",
+  "Europe/Rome": "IT",
+  "Europe/Amsterdam": "NL",
+  "Europe/Brussels": "BE",
+  "Europe/Zurich": "CH",
+  "Europe/Vienna": "AT",
+  "Europe/Stockholm": "SE",
+  "Europe/Oslo": "NO",
+  "Europe/Copenhagen": "DK",
+  "Europe/Helsinki": "FI",
+  "Europe/Lisbon": "PT",
+  "Europe/Warsaw": "PL",
+  "America/New_York": "US",
+  "America/Chicago": "US",
+  "America/Denver": "US",
+  "America/Los_Angeles": "US",
+  "America/Phoenix": "US",
+  "America/Anchorage": "US",
+  "Pacific/Honolulu": "US",
+  "America/Toronto": "CA",
+  "America/Vancouver": "CA",
+  "America/Edmonton": "CA",
+  "America/Winnipeg": "CA",
+  "America/Halifax": "CA",
+  "Australia/Sydney": "AU",
+  "Australia/Melbourne": "AU",
+  "Australia/Brisbane": "AU",
+  "Australia/Perth": "AU",
+  "Australia/Adelaide": "AU",
+  "Pacific/Auckland": "NZ",
+  "Asia/Singapore": "SG",
+  "Asia/Kuala_Lumpur": "MY",
+  "Asia/Tokyo": "JP",
+  "Asia/Seoul": "KR",
+  "Asia/Shanghai": "CN",
+  "Asia/Hong_Kong": "HK",
+  "Asia/Taipei": "TW",
+  "Asia/Manila": "PH",
+  "Asia/Dubai": "AE",
+  "Asia/Riyadh": "SA",
+  "Asia/Qatar": "QA",
+  "Asia/Bahrain": "BH",
+  "Asia/Kuwait": "KW",
+  "Asia/Muscat": "OM",
+  "Africa/Johannesburg": "ZA",
+  "Africa/Nairobi": "KE",
+  "Africa/Lagos": "NG",
+};
+
+function detectRegionCode(): string | null {
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timezone && timezoneToRegionCode[timezone]) {
+      return timezoneToRegionCode[timezone];
+    }
+  } catch {
+    // Intl not available
+  }
   if (typeof navigator === "undefined") return null;
   const browserLanguage = navigator.language ?? navigator.languages?.[0];
   if (!browserLanguage) return null;
   const regionMatch = browserLanguage.match(/[-_]([A-Z]{2})$/i);
   if (!regionMatch) return null;
-  const regionCode = regionMatch[1].toUpperCase();
+  return regionMatch[1].toUpperCase();
+}
+
+export function getFluxVoiceForBrowserRegion(): string | null {
+  if (typeof window === "undefined") return null;
+  const regionCode = detectRegionCode();
+  if (!regionCode) return null;
   const matchedVoices = fluxVoiceOptions.filter((opt) => opt.regions.includes(regionCode));
   if (matchedVoices.length === 0) {
     const americanVoices = fluxVoiceOptions.filter((opt) => opt.regions.includes("US"));
