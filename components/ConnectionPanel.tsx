@@ -20,15 +20,49 @@ interface ConnectionPanelProps {
 }
 
 const fluxVoiceOptions = [
-  { value: "flux-kit-en", label: "Kit (British)", agentName: "Kit", regions: ["GB", "IE"] },
+  // American English
   { value: "flux-haley-en", label: "Haley (American)", agentName: "Haley", regions: ["US", "CA"] },
-  { value: "flux-heather-en", label: "Heather (American)", agentName: "Heather", regions: ["SG", "JP", "KR", "CN", "HK", "TW"] },
+  { value: "flux-heather-en", label: "Heather (American)", agentName: "Heather", regions: ["US", "CA"] },
+  { value: "flux-bruce-en", label: "Bruce (American)", agentName: "Bruce", regions: ["US", "CA"] },
+  { value: "flux-drew-en", label: "Drew (American)", agentName: "Drew", regions: ["US", "CA"] },
+  { value: "flux-alexis-en", label: "Alexis (American)", agentName: "Alexis", regions: ["US", "CA"] },
+  { value: "flux-hannah-en", label: "Hannah (American)", agentName: "Hannah", regions: ["US", "CA"] },
+  { value: "flux-cliff-en", label: "Cliff (American)", agentName: "Cliff", regions: ["US", "CA"] },
+  { value: "flux-sienna-en", label: "Sienna (American)", agentName: "Sienna", regions: ["US", "CA"] },
+  { value: "flux-cole-en", label: "Cole (American)", agentName: "Cole", regions: ["US", "CA"] },
+  { value: "flux-brooke-en", label: "Brooke (American)", agentName: "Brooke", regions: ["US", "CA"] },
+  { value: "flux-miles-en", label: "Miles (American)", agentName: "Miles", regions: ["US", "CA"] },
+  { value: "flux-bree-en", label: "Bree (American)", agentName: "Bree", regions: ["US", "CA"] },
+  { value: "flux-brittany-en", label: "Brittany (American)", agentName: "Brittany", regions: ["US", "CA"] },
+  { value: "flux-donovan-en", label: "Donovan (American)", agentName: "Donovan", regions: ["US", "CA"] },
+  { value: "flux-elise-en", label: "Elise (American)", agentName: "Elise", regions: ["US", "CA"] },
+  { value: "flux-kelsey-en", label: "Kelsey (American)", agentName: "Kelsey", regions: ["US", "CA"] },
+  { value: "flux-marcus-en", label: "Marcus (American)", agentName: "Marcus", regions: ["US", "CA"] },
+  { value: "flux-meghan-en", label: "Meghan (American)", agentName: "Meghan", regions: ["US", "CA"] },
+  { value: "flux-paige-en", label: "Paige (American)", agentName: "Paige", regions: ["US", "CA"] },
+  { value: "flux-wade-en", label: "Wade (American)", agentName: "Wade", regions: ["US", "CA"] },
+  { value: "flux-wes-en", label: "Wes (American)", agentName: "Wes", regions: ["US", "CA"] },
+  // British English
+  { value: "flux-kit-en", label: "Kit (British)", agentName: "Kit", regions: ["GB", "IE", "ZA", "KE", "NG"] },
+  { value: "flux-jack-en", label: "Jack (British)", agentName: "Jack", regions: ["GB", "IE", "ZA", "KE", "NG"] },
+  { value: "flux-rufus-en", label: "Rufus (British)", agentName: "Rufus", regions: ["GB", "IE", "ZA", "KE", "NG"] },
+  { value: "flux-colin-en", label: "Colin (British)", agentName: "Colin", regions: ["GB", "IE", "ZA", "KE", "NG"] },
+  { value: "flux-gemma-en", label: "Gemma (British)", agentName: "Gemma", regions: ["GB", "IE", "ZA", "KE", "NG"] },
+  { value: "flux-sean-en", label: "Sean (British)", agentName: "Sean", regions: ["GB", "IE", "ZA", "KE", "NG"] },
+  { value: "flux-conor-en", label: "Conor (British)", agentName: "Conor", regions: ["GB", "IE", "ZA", "KE", "NG"] },
+  { value: "flux-tanner-en", label: "Tanner (British)", agentName: "Tanner", regions: ["GB", "IE", "ZA", "KE", "NG"] },
+  // Indian English
   { value: "flux-priya-en", label: "Priya (Indian)", agentName: "Priya", regions: ["IN", "PK", "NP", "LK", "BD"] },
-  { value: "flux-jack-en", label: "Jack (British)", agentName: "Jack", regions: ["ZA", "KE", "NG"] },
-  { value: "flux-bruce-en", label: "Bruce (American)", agentName: "Bruce", regions: ["AU", "NZ"] },
-  { value: "flux-rufus-en", label: "Rufus (British)", agentName: "Rufus", regions: ["PH", "MY"] },
-  { value: "flux-drew-en", label: "Drew (American)", agentName: "Drew", regions: ["DE", "FR", "ES", "IT", "NL", "SE", "NO", "DK", "FI", "PT", "AT", "CH", "BE", "PL"] },
-  { value: "flux-alexis-en", label: "Alexis (American)", agentName: "Alexis", regions: ["AE", "SA", "QA", "BH", "KW", "OM"] },
+  { value: "flux-meena-en", label: "Meena (Indian)", agentName: "Meena", regions: ["IN", "PK", "NP", "LK", "BD"] },
+  { value: "flux-naveen-en", label: "Naveen (Indian)", agentName: "Naveen", regions: ["IN", "PK", "NP", "LK", "BD"] },
+  // Irish English
+  { value: "flux-maeve-en", label: "Maeve (Irish)", agentName: "Maeve", regions: ["IE"] },
+  // Australian English
+  { value: "flux-sharon-en", label: "Sharon (Australian)", agentName: "Sharon", regions: ["AU", "NZ"] },
+  // Singaporean English
+  { value: "flux-kai-en", label: "Kai (Singaporean)", agentName: "Kai", regions: ["SG", "MY"] },
+  // Filipino English
+  { value: "flux-marcelo-en", label: "Marcelo (Filipino)", agentName: "Marcelo", regions: ["PH"] },
 ];
 
 export function getAgentNameForVoice(voiceModel: string): string {
@@ -43,8 +77,15 @@ export function getFluxVoiceForBrowserRegion(): string | null {
   const regionMatch = browserLanguage.match(/[-_]([A-Z]{2})$/i);
   if (!regionMatch) return null;
   const regionCode = regionMatch[1].toUpperCase();
-  const matched = fluxVoiceOptions.find((opt) => opt.regions.includes(regionCode));
-  return matched?.value ?? null;
+  const matchedVoices = fluxVoiceOptions.filter((opt) => opt.regions.includes(regionCode));
+  if (matchedVoices.length === 0) {
+    const americanVoices = fluxVoiceOptions.filter((opt) => opt.regions.includes("US"));
+    if (americanVoices.length === 0) return null;
+    const fallbackIndex = Math.floor(Math.random() * americanVoices.length);
+    return americanVoices[fallbackIndex].value;
+  }
+  const randomIndex = Math.floor(Math.random() * matchedVoices.length);
+  return matchedVoices[randomIndex].value;
 }
 
 const thinkModelOptions = [
