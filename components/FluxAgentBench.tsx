@@ -5,7 +5,7 @@ import { useDeepgramAgent, type TranscriptTurn } from "@/hooks/useDeepgramAgent"
 import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 import { useMicrophone } from "@/hooks/useMicrophone";
 import { useVuMeter } from "@/hooks/useVuMeter";
-import { ConnectionPanel, getAgentNameForVoice } from "@/components/ConnectionPanel";
+import { ConnectionPanel, getAgentNameForVoice, getFluxVoiceForBrowserRegion } from "@/components/ConnectionPanel";
 import { SystemPromptPanel } from "@/components/SystemPromptPanel";
 import { TextInjectPanel } from "@/components/TextInjectPanel";
 import { LivePanel } from "@/components/LivePanel";
@@ -366,6 +366,16 @@ export function FluxAgentBench({
     buildGreeting(initialProductConfig.productName, getAgentNameForVoice(initialVoiceModel))
   );
   const [transcriptTurns, setTranscriptTurns] = useState<TranscriptTurn[]>([]);
+
+  const regionVoiceAppliedRef = useRef(false);
+  useEffect(() => {
+    if (regionVoiceAppliedRef.current) return;
+    regionVoiceAppliedRef.current = true;
+    const regionVoice = getFluxVoiceForBrowserRegion();
+    if (regionVoice && regionVoice !== voiceModel) {
+      setVoiceModel(regionVoice);
+    }
+  }, []);
 
   const handleProductFileChange = useCallback(
     (fileName: string) => {

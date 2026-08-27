@@ -36,6 +36,53 @@ export function getAgentNameForVoice(voiceModel: string): string {
   return match?.agentName ?? "Agent";
 }
 
+const regionToFluxVoice: Record<string, string> = {
+  IN: "flux-priya-en",
+  PK: "flux-priya-en",
+  NP: "flux-priya-en",
+  LK: "flux-priya-en",
+  BD: "flux-priya-en",
+  GB: "flux-jack-en",
+  IE: "flux-jack-en",
+  AU: "flux-bruce-en",
+  NZ: "flux-bruce-en",
+  CA: "flux-haley-en",
+  DE: "flux-drew-en",
+  FR: "flux-drew-en",
+  ES: "flux-drew-en",
+  IT: "flux-drew-en",
+  NL: "flux-drew-en",
+  SE: "flux-drew-en",
+  NO: "flux-drew-en",
+  DK: "flux-drew-en",
+  FI: "flux-drew-en",
+  PT: "flux-drew-en",
+  AT: "flux-drew-en",
+  CH: "flux-drew-en",
+  BE: "flux-drew-en",
+  PL: "flux-drew-en",
+  AE: "flux-alexis-en",
+  SA: "flux-alexis-en",
+  QA: "flux-alexis-en",
+  SG: "flux-heather-en",
+  JP: "flux-heather-en",
+  KR: "flux-heather-en",
+  CN: "flux-heather-en",
+  HK: "flux-heather-en",
+  TW: "flux-heather-en",
+  PH: "flux-rufus-en",
+};
+
+export function getFluxVoiceForBrowserRegion(): string | null {
+  if (typeof navigator === "undefined") return null;
+  const browserLanguage = navigator.language ?? navigator.languages?.[0];
+  if (!browserLanguage) return null;
+  const regionMatch = browserLanguage.match(/[-_]([A-Z]{2})$/i);
+  if (!regionMatch) return null;
+  const regionCode = regionMatch[1].toUpperCase();
+  return regionToFluxVoice[regionCode] ?? null;
+}
+
 const thinkModelOptions = [
   { value: "gpt-4o-mini", label: "gpt-4o-mini" },
   { value: "gpt-4o", label: "gpt-4o" },
