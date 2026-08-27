@@ -150,6 +150,12 @@ Security issues: security@mr-innovations.com
 - [**hotelstack.io**](https://hotelstack.io) — hotel-tech stack for boutique properties.
 - [**bookmyroom.io**](https://bookmyroom.io) — direct hotel-room booking engine.
 
+#### Trading
+- [**MR Gold Trader**](https://www.mql5.com/en/market/product/125423) — automated Expert Advisor for XAUUSD (Gold) on MetaTrader 5.
+- [**MrGoldTrend**](https://www.mql5.com/en/users/mujeeb.6727/seller) — free trend-following indicator for Gold on MT5.
+- [**MR Score**](https://www.mql5.com/en/users/mujeeb.6727/seller) — free probability-based price deviation indicator for MT5.
+- [MQL5 Marketplace Profile](https://www.mql5.com/en/users/mujeeb.6727/seller)
+
 ## License
 
 [MIT](LICENSE) — Copyright (c) 2026 Mujeeb Rahman / MR INNOVATIONS
