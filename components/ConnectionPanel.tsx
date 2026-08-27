@@ -20,7 +20,7 @@ interface ConnectionPanelProps {
 }
 
 const fluxVoiceOptions = [
-  { value: "flux-kit-en", label: "Kit", agentName: "Kit", "regions": ["IN", "PK", "NP", "LK", "BD"] },
+  { value: "flux-kit-en", label: "Kit", agentName: "Kit", "regions": ["US"] },
   { value: "flux-haley-en", label: "Haley", agentName: "Haley", "regions": ["CA"] },
   { value: "flux-heather-en", label: "Heather", agentName: "Heather", "regions": ["SG", "JP", "KR", "CN", "HK", "TW", "PH"] },
   { value: "flux-priya-en", label: "Priya", agentName: "Priya", "regions": ["IN", "PK", "NP", "LK", "BD"] },
