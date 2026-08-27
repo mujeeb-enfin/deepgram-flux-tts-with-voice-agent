@@ -1,0 +1,48 @@
+{
+  "productName": "HotelStack",
+  "description": "A cloud-based all-in-one hotel management platform that combines property management, channel management, revenue intelligence, guest CRM, booking engine, and billing into a single unified system. SOC 2 Type II certified, PCI DSS Level 1 compliant, GDPR compliant, and ISO 27001 certified with 99.9 percent uptime SLA.",
+  "targetUsers": "Hotels, resorts, boutique properties, hostels, and hotel chains of all sizes — from small independent hotels with up to 30 rooms to enterprise chains with unlimited properties across multiple countries.",
+  "problems": [
+    "Hotels juggle multiple disconnected systems for reservations, channel management, billing, and guest communication — leading to double bookings, rate mismatches, and lost revenue.",
+    "Manual front desk operations are slow and error-prone, especially during peak check-in and check-out periods.",
+    "Revenue managers lack real-time visibility into RevPAR, ADR, and occupancy trends, making pricing decisions reactive rather than proactive.",
+    "Guest communication is fragmented across email, phone, and OTA messaging with no unified profile or history — leading to impersonal service and missed upsell opportunities.",
+    "Hotels lose a significant share of bookings to OTA commissions because their direct booking experience is poor or non-existent.",
+    "Guests have no easy way to call the hotel directly from their booking confirmation, and hotels have no structured way to route incoming guest calls to the right department or call guests back proactively."
+  ],
+  "capabilities": [
+    "Unified PMS dashboard — front desk operations, reservations, housekeeping coordination, and room management all in one screen with hybrid offline-capable resilience so the front desk keeps running even if internet drops.",
+    "Channel manager synced to over 100 OTAs — real-time rate and availability sync with Booking.com, Expedia, Airbnb, Agoda, plus GDS connectivity via Amadeus and Sabre. One rate change propagates everywhere instantly.",
+    "Revenue intelligence — real-time RevPAR, ADR, and occupancy analytics with dynamic pricing, what-if scenario modelling, and AI-powered forecasting on the Enterprise tier to optimise room rates automatically.",
+    "Guest CRM with 360-degree profiles — tracks preferences, stay history, loyalty status, and communication across every channel so staff can personalise every interaction.",
+    "Integrated booking engine and BookMyRoom.io listing — every property gets a dedicated direct-booking page with hotel discovery by location, price, rating, and amenities. Mobile-first, verified reviews, instant confirmation synced to the PMS. Designed to increase direct bookings by up to 40 percent and reduce OTA commission spend.",
+    "Billing and payments — automated invoicing, multi-currency support, tax compliance, and integrated payment gateways including Stripe, PayPal, and PaymentHooks. POS integration for food and beverage on Professional tier and above.",
+    "Enterprise security — role-based access control, full audit trails, 256-bit AES end-to-end encryption, and regional regulatory compliance covering EU, UK, US, UAE, Southeast Asia, Australia, Japan, and India.",
+    "AI Voice Concierge — an AI-powered assistant embedded across the guest journey. Answers guest questions instantly via chat or voice about room amenities, hotel facilities, local recommendations, restaurant hours, spa availability, Wi-Fi, parking, and policies. Handles common service requests such as early check-in, late check-out, extra towels, room service orders, spa bookings, and restaurant reservations — without putting the guest on hold or requiring staff intervention. Learns guest preferences from the CRM profile to personalise responses. Available 24/7 in multiple languages so international guests get help in their own language even outside staffed hours. On the Enterprise tier, includes AI-powered revenue forecasting, dynamic pricing recommendations, and automated review response drafting.",
+    "Guest-to-Hotel Calling — guests can call the hotel directly from their booking confirmation page, the BookMyRoom.io listing, or the post-booking email with a single tap. The call connects through the HotelStack cloud voice channel — no phone number lookup needed. The AI concierge answers immediately, understands the guest's intent, and either resolves the request directly or routes the call to the correct department — front desk, housekeeping, F&B, spa, or management — based on intent detection, not a phone tree. Routing considers the guest's booking context, loyalty tier, and request urgency. Priority and VIP guests are routed to senior staff automatically. Every call is transcribed in real time and logged in the Guest CRM with a summary and sentiment score.",
+    "Hotel-to-Guest Calling — hotels can initiate outbound calls to guests directly from the HotelStack dashboard. Use cases include pre-arrival welcome calls, booking confirmation follow-ups, room upgrade and package upsell offers, check-out reminders, and post-stay feedback collection. The AI agent handles the initial conversation — introduces itself, delivers the message, collects the guest's response, and hands off to a human staff member only when the guest requests it or the conversation requires it. Hotels configure the timing, script template, and escalation rules per call campaign. Every outbound call is logged against the guest's CRM profile with a full transcript, outcome status, and sentiment analysis so staff have complete context for any follow-up."
+  ],
+  "integrations": [
+    "Over 100 OTA connections via the built-in channel manager — Booking.com, Expedia, Airbnb, Agoda, and more.",
+    "GDS connectivity through Amadeus and Sabre for corporate and travel agency bookings.",
+    "Payment gateways — Stripe, PayPal, and PaymentHooks for global payment processing in multiple currencies.",
+    "EventHooks for real-time webhook-based event notifications to external systems.",
+    "BookMyRoom.io — every property gets a dedicated guest-facing booking portal with search, reviews, and instant confirmation.",
+    "API access on the Enterprise tier for custom integrations with existing hotel technology stacks.",
+    "Voice integration via Deepgram Flux for the AI Voice Concierge and call routing — connects to the hotel's existing phone system or operates as a standalone cloud-based voice channel accessible from the guest's booking page."
+  ],
+  "pricing": "Starter plan at 49 dollars per month for up to 30 rooms and 1 user with basic analytics and email support. Professional plan at 99 dollars per month for up to 100 rooms and 10 users with advanced analytics, priority support, channel manager, and POS integration. Enterprise plan at 199 dollars per month for unlimited rooms and users with AI Voice Concierge, guest-to-hotel calling, hotel-to-guest calling, AI analytics, 24/7 phone support, all integrations, multi-property management, white label option, and API access. All plans include a 14-day free trial with full access and no credit card required. No hidden fees, cancel anytime. Enterprise plans include a dedicated account manager and free data migration from an existing PMS.",
+  "limits": "The Starter plan is limited to 30 rooms and 1 user with standard reports and email-only support. The Professional plan supports up to 100 rooms and 10 users. AI Voice Concierge, guest-to-hotel calling, and hotel-to-guest calling are available on the Enterprise plan only. AI analytics and API access also require the Enterprise tier. While the platform supports offline front desk operations, channel manager sync, AI voice features, and calling features require an active internet connection. The AI Voice Concierge handles common guest requests but routes complex or sensitive matters such as billing disputes, complaints, and special accommodations to human staff.",
+  "facts": [
+    "Used by over 500 hotels across more than 40 countries.",
+    "SOC 2 Type II certified, PCI DSS Level 1 compliant, GDPR compliant, and ISO 27001 certified.",
+    "99.9 percent uptime SLA with hybrid offline resilience for front desk operations.",
+    "256-bit AES end-to-end encryption for all data at rest and in transit.",
+    "Claims to reduce manual work by 70 percent through automation and increase direct bookings by up to 40 percent.",
+    "Regional regulatory compliance built in for EU and UK, United States, UAE and Middle East, Thailand and Southeast Asia, Australia, Japan, and India.",
+    "Free data migration from existing PMS systems when switching to HotelStack.",
+    "The AI Voice Concierge supports multiple languages and operates 24/7 — handles service requests, answers questions, and personalises responses using the guest's CRM profile.",
+    "Guest-to-hotel calls connect with a single tap from the booking page — the AI answers, resolves or routes by intent, and every call is transcribed and logged in the CRM automatically.",
+    "Hotel-to-guest outbound calls for pre-arrival, upsell, and post-stay feedback are fully configurable from the dashboard — hotels set the timing, script, and escalation rules, and the AI handles execution and reporting."
+  ]
+}

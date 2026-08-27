@@ -1,0 +1,16 @@
+.next/
+.mrcoder
+.claude/
+.plan/
+.vscode/
+node_modules/
+out/
+*.pem
+.env
+.env.local
+
+cert/
+certificates/
+docs/
+index_bkp.html
+products/karcher_k_2_360.json

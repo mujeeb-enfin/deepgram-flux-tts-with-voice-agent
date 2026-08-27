@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #101318;
+  --color-ink2: #5A616D;
+  --color-ink3: #8B929E;
+  --color-field: #E7E9ED;
+  --color-panel: #FFFFFF;
+  --color-line: #D2D6DD;
+  --color-line2: #EDEFF2;
+  --color-signal: #1B4FD8;
+  --color-signal-hover: #1743B8;
+  --color-signal-ring: rgba(27, 79, 216, 0.12);
+  --color-live: #0B7A5C;
+  --color-warn: #A85410;
+  --color-danger: #B0241D;
+  --color-input-bg: #FBFBFC;
+  --color-seg-user: #B9C8EE;
+  --color-seg-agent: #A8D6C6;
+  --color-seg-cut: #EBC49B;
+  --color-cutmark-border: #E5C79E;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
