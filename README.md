@@ -136,7 +136,7 @@ Security issues: security@mr-innovations.com
 - [**cybrohosting.com**](https://cybrohosting.com) — managed hosting.
 
 #### Webhooks
-- [**paymenthooks.com**](https://paymenthooks.com) — payment webhook routing.
+- [**paymenthooks.com**](https://paymenthooks.com) — payment gateway orchestrator — one platform for 35+ PGs.
 - [**evethooks.io**](https://evethooks.io) — event-driven webhook orchestration.
 - [**emailhooks.io**](https://emailhooks.io) — email-event webhooks (delivered, opened, bounced).
 
