@@ -129,7 +129,7 @@ Security issues: security@mr-innovations.com
 
 #### Developer tools
 - [**MR CODER**](https://marketplace.visualstudio.com/items?itemName=mr-coder) — VS Code extension.
-- [**mr-coder.io**](https://mr-coder.io) — companion site.
+- [**mr-coder.io**](https://mr-coder.io) — AI model router for coding agents.
 - [**codeshare.site**](https://codeshare.site) — share code snippets with a permalink.
 
 #### Hosting
