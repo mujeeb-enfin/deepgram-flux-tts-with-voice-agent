@@ -121,7 +121,7 @@ products/
 
 ## Maintainer
 
-This project is published and maintained by **Mujeeb Rahman** — project manager by trade, software engineer at heart, and founder of **[MR INNOVATIONS](https://mr-innovations.com)**.
+This project is published and maintained by **Mujeeb Rahman** — project manager by trade, software engineer at heart, algorithmic trader for investment, and founder of **[MR INNOVATIONS](https://mr-innovations.com)**.
 
 Security issues: security@mr-innovations.com
 
