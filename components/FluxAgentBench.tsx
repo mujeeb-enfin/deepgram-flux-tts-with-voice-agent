@@ -404,6 +404,8 @@ export function FluxAgentBench({
 
   const isAgentSpeakingRef = useRef(false);
   const lastAgentTurnIndexRef = useRef<number | null>(null);
+  const echoTailTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setMicSuppressedRef = useRef((_suppressed: boolean) => {});
 
   const { playbackAnalyserRef, initPlayback, queueAudio, stopPlayback, destroyPlayback } =
     useAudioPlayback();
@@ -418,6 +420,11 @@ export function FluxAgentBench({
       startMeteringFnRef.current();
     },
     onUserStartedSpeaking: () => {
+      if (echoTailTimerRef.current) {
+        clearTimeout(echoTailTimerRef.current);
+        echoTailTimerRef.current = null;
+      }
+      setMicSuppressedRef.current(false);
       const hadAudio = stopPlayback();
       if (isAgentSpeakingRef.current && hadAudio) {
         const cutIndex = lastAgentTurnIndexRef.current;
@@ -435,10 +442,19 @@ export function FluxAgentBench({
     },
     onAgentStartedSpeaking: () => {
       isAgentSpeakingRef.current = true;
+      if (echoTailTimerRef.current) {
+        clearTimeout(echoTailTimerRef.current);
+        echoTailTimerRef.current = null;
+      }
+      setMicSuppressedRef.current(true);
     },
     onAgentAudioDone: () => {
       isAgentSpeakingRef.current = false;
       lastAgentTurnIndexRef.current = null;
+      echoTailTimerRef.current = setTimeout(() => {
+        setMicSuppressedRef.current(false);
+        echoTailTimerRef.current = null;
+      }, 1500);
     },
     onConversationText: (role: "user" | "agent", content: string) => {
       setTranscriptTurns((prev) => {
@@ -450,6 +466,11 @@ export function FluxAgentBench({
       });
     },
     onDisconnected: () => {
+      if (echoTailTimerRef.current) {
+        clearTimeout(echoTailTimerRef.current);
+        echoTailTimerRef.current = null;
+      }
+      setMicSuppressedRef.current(false);
       stopMicFnRef.current();
       destroyPlayback();
       stopMeteringFnRef.current();
@@ -470,7 +491,7 @@ export function FluxAgentBench({
     clearLog,
   } = useDeepgramAgent(agentCallbacks);
 
-  const { micAnalyserRef, isMicMuted, isMicMutedRef, startMic, stopMic, toggleMicMute } =
+  const { micAnalyserRef, isMicMuted, isMicMutedRef, startMic, stopMic, toggleMicMute, setMicSuppressed } =
     useMicrophone(sendAudioChunk);
 
   const { userLevel, agentLevel, startMetering, stopMetering } = useVuMeter();
@@ -487,6 +508,7 @@ export function FluxAgentBench({
   useEffect(() => {
     startMicFnRef.current = () => { return startMic().catch(() => {}); };
     stopMicFnRef.current = stopMic;
+    setMicSuppressedRef.current = setMicSuppressed;
     startMeteringFnRef.current = () => {
       startMetering(micAnalyserRef, playbackAnalyserRef, () => isMicMutedRef.current);
     };

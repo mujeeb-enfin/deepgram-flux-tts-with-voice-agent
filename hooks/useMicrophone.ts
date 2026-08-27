@@ -11,6 +11,7 @@ export function useMicrophone(sendAudioChunk: (buffer: ArrayBuffer) => void) {
   const micAnalyserRef = useRef<AnalyserNode | null>(null);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const isMicMutedRef = useRef(false);
+  const isMicSuppressedRef = useRef(false);
 
   const startMic = useCallback(async () => {
     const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -29,7 +30,7 @@ export function useMicrophone(sendAudioChunk: (buffer: ArrayBuffer) => void) {
     const processorNode = audioContext.createScriptProcessor(4096, 1, 1);
 
     processorNode.onaudioprocess = (event) => {
-      if (isMicMutedRef.current) return;
+      if (isMicMutedRef.current || isMicSuppressedRef.current) return;
       const floatSamples = event.inputBuffer.getChannelData(0);
       const int16Samples = new Int16Array(floatSamples.length);
       for (let i = 0; i < floatSamples.length; i++) {
@@ -74,6 +75,10 @@ export function useMicrophone(sendAudioChunk: (buffer: ArrayBuffer) => void) {
     });
   }, []);
 
+  const setMicSuppressed = useCallback((suppressed: boolean) => {
+    isMicSuppressedRef.current = suppressed;
+  }, []);
+
   return {
     micAnalyserRef,
     isMicMuted,
@@ -81,5 +86,6 @@ export function useMicrophone(sendAudioChunk: (buffer: ArrayBuffer) => void) {
     startMic,
     stopMic,
     toggleMicMute,
+    setMicSuppressed,
   };
 }
