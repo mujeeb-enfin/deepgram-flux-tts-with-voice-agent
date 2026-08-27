@@ -121,9 +121,34 @@ products/
 
 ## Maintainer
 
-**Mujeeb Rahman** — [GitHub](https://github.com/mujeeb-enfin) | [MR INNOVATIONS](https://mr-innovations.com)
+This project is published and maintained by **Mujeeb Rahman** — project manager by trade, software engineer at heart, and founder of **[MR INNOVATIONS](https://mr-innovations.com)**.
 
 Security issues: security@mr-innovations.com
+
+### Other products from MR INNOVATIONS
+
+#### Developer tools
+- [**MR CODER**](https://marketplace.visualstudio.com/items?itemName=mr-coder) — VS Code extension.
+- [**mr-coder.io**](https://mr-coder.io) — companion site.
+- [**codeshare.site**](https://codeshare.site) — share code snippets with a permalink.
+
+#### Hosting
+- [**cybrohosting.com**](https://cybrohosting.com) — managed hosting.
+
+#### Webhooks
+- [**paymenthooks.com**](https://paymenthooks.com) — payment webhook routing.
+- [**evethooks.io**](https://evethooks.io) — event-driven webhook orchestration.
+- [**emailhooks.io**](https://emailhooks.io) — email-event webhooks (delivered, opened, bounced).
+
+#### APIs & data
+- [**worldpostallocations.com**](https://worldpostallocations.com) — worldwide postal-code / address-allocation API.
+
+#### Classifieds & marketplaces
+- [**360classifieds.in**](https://360classifieds.in) — India classifieds platform.
+
+#### Travel & hospitality
+- [**hotelstack.io**](https://hotelstack.io) — hotel-tech stack for boutique properties.
+- [**bookmyroom.io**](https://bookmyroom.io) — direct hotel-room booking engine.
 
 ## License
 
