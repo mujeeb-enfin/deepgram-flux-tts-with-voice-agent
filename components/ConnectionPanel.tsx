@@ -20,15 +20,15 @@ interface ConnectionPanelProps {
 }
 
 const fluxVoiceOptions = [
-  { value: "flux-kit-en", label: "Kit", agentName: "Kit", "regions": ["US"] },
-  { value: "flux-haley-en", label: "Haley", agentName: "Haley", "regions": ["CA"] },
-  { value: "flux-heather-en", label: "Heather", agentName: "Heather", "regions": ["SG", "JP", "KR", "CN", "HK", "TW", "PH"] },
-  { value: "flux-priya-en", label: "Priya", agentName: "Priya", "regions": ["IN", "PK", "NP", "LK", "BD"] },
-  { value: "flux-jack-en", label: "Jack", agentName: "Jack", "regions": ["GB", "IE"] },
-  { value: "flux-bruce-en", label: "Bruce", agentName: "Bruce", "regions": ["AU", "NZ"] },
-  { value: "flux-rufus-en", label: "Rufus", agentName: "Rufus", "regions": ["US"] },
-  { value: "flux-drew-en", label: "Drew", agentName: "Drew", "regions": ["US"] },
-  { value: "flux-alexis-en", label: "Alexis", agentName: "Alexis", "regions": ["US"] },
+  { value: "flux-kit-en", label: "Kit (British)", agentName: "Kit", regions: ["GB", "IE"] },
+  { value: "flux-haley-en", label: "Haley (American)", agentName: "Haley", regions: ["US", "CA"] },
+  { value: "flux-heather-en", label: "Heather (American)", agentName: "Heather", regions: ["SG", "JP", "KR", "CN", "HK", "TW"] },
+  { value: "flux-priya-en", label: "Priya (Indian)", agentName: "Priya", regions: ["IN", "PK", "NP", "LK", "BD"] },
+  { value: "flux-jack-en", label: "Jack (British)", agentName: "Jack", regions: ["ZA", "KE", "NG"] },
+  { value: "flux-bruce-en", label: "Bruce (American)", agentName: "Bruce", regions: ["AU", "NZ"] },
+  { value: "flux-rufus-en", label: "Rufus (British)", agentName: "Rufus", regions: ["PH", "MY"] },
+  { value: "flux-drew-en", label: "Drew (American)", agentName: "Drew", regions: ["DE", "FR", "ES", "IT", "NL", "SE", "NO", "DK", "FI", "PT", "AT", "CH", "BE", "PL"] },
+  { value: "flux-alexis-en", label: "Alexis (American)", agentName: "Alexis", regions: ["AE", "SA", "QA", "BH", "KW", "OM"] },
 ];
 
 export function getAgentNameForVoice(voiceModel: string): string {
