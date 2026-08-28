@@ -23,18 +23,27 @@ export function useMicrophone(sendAudioChunk: (buffer: ArrayBuffer) => void) {
       },
     });
 
-    const audioContext = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
+    const audioContext = new AudioContext();
     const sourceNode = audioContext.createMediaStreamSource(mediaStream);
     const analyserNode = audioContext.createAnalyser();
     analyserNode.fftSize = 256;
     const processorNode = audioContext.createScriptProcessor(4096, 1, 1);
 
+    const inputSampleRate = audioContext.sampleRate;
+    const resampleRatio = INPUT_SAMPLE_RATE / inputSampleRate;
+
     processorNode.onaudioprocess = (event) => {
       if (isMicMutedRef.current || isMicSuppressedRef.current) return;
       const floatSamples = event.inputBuffer.getChannelData(0);
-      const int16Samples = new Int16Array(floatSamples.length);
-      for (let i = 0; i < floatSamples.length; i++) {
-        const clamped = Math.max(-1, Math.min(1, floatSamples[i]));
+      const outputLength = Math.floor(floatSamples.length * resampleRatio);
+      const int16Samples = new Int16Array(outputLength);
+      for (let i = 0; i < outputLength; i++) {
+        const sourceIndex = i / resampleRatio;
+        const lowerIndex = Math.floor(sourceIndex);
+        const upperIndex = Math.min(lowerIndex + 1, floatSamples.length - 1);
+        const fraction = sourceIndex - lowerIndex;
+        const interpolated = floatSamples[lowerIndex] * (1 - fraction) + floatSamples[upperIndex] * fraction;
+        const clamped = Math.max(-1, Math.min(1, interpolated));
         int16Samples[i] = clamped < 0 ? clamped * 32768 : clamped * 32767;
       }
       sendAudioChunk(int16Samples.buffer);

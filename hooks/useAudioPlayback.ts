@@ -12,7 +12,7 @@ export function useAudioPlayback() {
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
 
   const initPlayback = useCallback(() => {
-    const audioContext = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+    const audioContext = new AudioContext();
     const gainNode = audioContext.createGain();
     const analyserNode = audioContext.createAnalyser();
     analyserNode.fftSize = 256;
