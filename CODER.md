@@ -250,14 +250,14 @@ port comes from the `PORT` env (NOT the `-p` flag). Keep dev and prod on
 **separate ports** so a hot-reloading dev server never clobbers the production
 build that the Cloudflare tunnel serves.
 
-- **Dev → 4001**: `npm run dev` (forces `PORT=4001`, `tsx watch`, hot reload).
-  NEVER run the dev server on 4000.
-- **Production → 4000**: `npm start` (or `PORT=4000 npm start`). This is what
+- **Dev → 3444**: `npm run dev` (forces `PORT=3444`, `tsx watch`, hot reload) with SSL enabled.
+  NEVER run the dev server on 3443.
+- **Production → 3443**: `npm start` (or `PORT=3443 npm start`). This is what
   the tunnel `ai-sales-agent.mr-coder.io` serves. Build first:
   `npx next build --webpack` (webpack, not turbopack), then `npm start`.
-- **Production (self-healing) → 4000**: `PORT=4000 npm run start:guard`. Wraps
+- **Production (self-healing) → 3443**: `PORT=3443 npm run start:guard`. Wraps
   the server in `scripts/prod-supervisor.mjs`, which respawns it (capped
-  backoff) if the process is killed — a `kill-port 4000`, a redeploy, or a
+  backoff) if the process is killed — a `kill-port 3443`, a redeploy, or a
   crash no longer takes the public demo offline. Prefer this for the live
   tunnel; plain `npm start` is fine for one-off local runs.
 - To free a port, use `npx kill-port <port>` — never "kill all node processes".
@@ -274,7 +274,7 @@ build that the Cloudflare tunnel serves.
 - **Reading before editing**: read the full file (or the containing module) to understand context — never patch blind.
 - **Matching existing style**: read a nearby file first; match its naming, imports, and error handling.
 - **Commit / summary messages**: describe the *why*, not the *what* — the diff already shows the what.
-- **Dev Port**: 4001
-- **Production Port**: 4000 DOCKER, never kill 4000 as this is with docker now, you can use npm run build:prod:restart to restart the docker 4000 port
+- **Dev Port**: 3444 with SSL
+- **Production Port**: 3443 DOCKER, never kill 3443 as this is with docker now, you can use npm run build:prod:restart to restart the docker 3443 port
 - **Do not kill all node processes**: if you wanted to kill a port, use `npx kill-port {port number}` command
 - **Do not run `git chekout`**: you should not use `git checkout` command even there are un committed changes.
