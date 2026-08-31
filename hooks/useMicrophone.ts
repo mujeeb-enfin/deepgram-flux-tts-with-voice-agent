@@ -1,11 +1,17 @@
 "use client";
 
 import { useRef, useCallback, useState } from "react";
+import {
+  DEEPGRAM_WIRE_INPUT_SAMPLE_RATE,
+  resampleMonoFloat32ToWireRateInt16,
+} from "@/lib/audio/sample-rate";
 
-const INPUT_SAMPLE_RATE = 16000;
-
+/**
+ * Mic capture runs on the host's AudioContext (shared with playback) and
+ * downsamples its native rate to Deepgram's 16kHz wire rate. It exercises a
+ * single layer of echo cancellation (getUserMedia) instead of faking one.
+ */
 export function useMicrophone(sendAudioChunk: (buffer: ArrayBuffer) => void) {
-  const micContextRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const micProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const micAnalyserRef = useRef<AnalyserNode | null>(null);
@@ -13,42 +19,44 @@ export function useMicrophone(sendAudioChunk: (buffer: ArrayBuffer) => void) {
   const isMicMutedRef = useRef(false);
   const isMicSuppressedRef = useRef(false);
 
-  const startMic = useCallback(async () => {
-    const mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        channelCount: 1,
-      },
-    });
+  const startMic = useCallback(
+    async (audioContext: AudioContext) => {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: false,
+          autoGainControl: true,
+          channelCount: 1,
+        },
+      });
 
-    const audioContext = new AudioContext({ sampleRate: INPUT_SAMPLE_RATE });
-    const sourceNode = audioContext.createMediaStreamSource(mediaStream);
-    const analyserNode = audioContext.createAnalyser();
-    analyserNode.fftSize = 256;
-    const processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+      const sourceNode = audioContext.createMediaStreamSource(mediaStream);
+      const analyserNode = audioContext.createAnalyser();
+      analyserNode.fftSize = 256;
+      const processorNode = audioContext.createScriptProcessor(4096, 1, 1);
 
-    processorNode.onaudioprocess = (event) => {
-      if (isMicMutedRef.current || isMicSuppressedRef.current) return;
-      const floatSamples = event.inputBuffer.getChannelData(0);
-      const int16Samples = new Int16Array(floatSamples.length);
-      for (let i = 0; i < floatSamples.length; i++) {
-        const clamped = Math.max(-1, Math.min(1, floatSamples[i]));
-        int16Samples[i] = clamped < 0 ? clamped * 32768 : clamped * 32767;
-      }
-      sendAudioChunk(int16Samples.buffer);
-    };
+      const contextSampleRate = audioContext.sampleRate;
+      processorNode.onaudioprocess = (event) => {
+        if (isMicMutedRef.current || isMicSuppressedRef.current) return;
+        const floatSamples = event.inputBuffer.getChannelData(0);
+        const wireReady = resampleMonoFloat32ToWireRateInt16(
+          floatSamples,
+          contextSampleRate,
+          DEEPGRAM_WIRE_INPUT_SAMPLE_RATE
+        );
+        sendAudioChunk(wireReady.buffer as ArrayBuffer);
+      };
 
-    sourceNode.connect(analyserNode);
-    analyserNode.connect(processorNode);
-    processorNode.connect(audioContext.destination);
+      sourceNode.connect(analyserNode);
+      analyserNode.connect(processorNode);
+      processorNode.connect(audioContext.destination);
 
-    micContextRef.current = audioContext;
-    micStreamRef.current = mediaStream;
-    micProcessorRef.current = processorNode;
-    micAnalyserRef.current = analyserNode;
-  }, [sendAudioChunk]);
+      micStreamRef.current = mediaStream;
+      micProcessorRef.current = processorNode;
+      micAnalyserRef.current = analyserNode;
+    },
+    [sendAudioChunk]
+  );
 
   const stopMic = useCallback(() => {
     if (micProcessorRef.current) {
@@ -56,15 +64,14 @@ export function useMicrophone(sendAudioChunk: (buffer: ArrayBuffer) => void) {
       micProcessorRef.current.onaudioprocess = null;
       micProcessorRef.current = null;
     }
+    if (micAnalyserRef.current) {
+      micAnalyserRef.current.disconnect();
+      micAnalyserRef.current = null;
+    }
     if (micStreamRef.current) {
       micStreamRef.current.getTracks().forEach((track) => track.stop());
       micStreamRef.current = null;
     }
-    if (micContextRef.current) {
-      micContextRef.current.close();
-      micContextRef.current = null;
-    }
-    micAnalyserRef.current = null;
   }, []);
 
   const toggleMicMute = useCallback(() => {

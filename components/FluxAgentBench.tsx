@@ -402,6 +402,7 @@ export function FluxAgentBench({
     setGreeting(buildGreeting(productName, getAgentNameForVoice(voiceModel)));
   }, [productConfigJson, voiceModel]);
 
+  const audioContextRef = useRef<AudioContext | null>(null);
   const isAgentSpeakingRef = useRef(false);
   const lastAgentTurnIndexRef = useRef<number | null>(null);
   const echoTailTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -410,13 +411,66 @@ export function FluxAgentBench({
   const { playbackAnalyserRef, initPlayback, queueAudio, stopPlayback, destroyPlayback } =
     useAudioPlayback();
 
+  const ensureAudioContext = useCallback((): AudioContext => {
+    if (audioContextRef.current) return audioContextRef.current;
+    const audioContext = new AudioContext({
+      latencyHint: "interactive",
+      sampleRate: 24000,
+    });
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch((err) => {
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            component: "flux_agent_bench",
+            event: "audio_context_resume_failed",
+            payload: { error: String(err) },
+          })
+        );
+      });
+    }
+    console.log(
+      JSON.stringify({
+        level: "info",
+        component: "flux_agent_bench",
+        event: "audio_context_created",
+        payload: {
+          sampleRate: audioContext.sampleRate,
+          state: audioContext.state,
+          baseLatency: audioContext.baseLatency,
+        },
+      })
+    );
+    audioContextRef.current = audioContext;
+    return audioContext;
+  }, []);
+
+  const releaseAudioContext = useCallback(async () => {
+    const audioContext = audioContextRef.current;
+    if (!audioContext) return;
+    try {
+      await audioContext.close();
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          component: "flux_agent_bench",
+          event: "audio_context_close_failed",
+          payload: { error: String(err) },
+        })
+      );
+    }
+    audioContextRef.current = null;
+  }, []);
+
   const agentCallbacks = useRef({
     onAudioData: (buffer: ArrayBuffer) => {
       queueAudio(buffer);
     },
     onSettingsApplied: async () => {
-      initPlayback();
-      await startMicFnRef.current();
+      const audioContext = ensureAudioContext();
+      initPlayback(audioContext);
+      await startMicFnRef.current(audioContext);
       startMeteringFnRef.current();
     },
     onUserStartedSpeaking: () => {
@@ -474,6 +528,7 @@ export function FluxAgentBench({
       stopMicFnRef.current();
       destroyPlayback();
       stopMeteringFnRef.current();
+      releaseAudioContext();
       isAgentSpeakingRef.current = false;
       lastAgentTurnIndexRef.current = null;
     },
@@ -496,8 +551,8 @@ export function FluxAgentBench({
 
   const { userLevel, agentLevel, startMetering, stopMetering } = useVuMeter();
 
-  const startMicFnRef = useRef(() => {
-    return startMic().catch(() => {});
+  const startMicFnRef = useRef((_audioContext: AudioContext) => {
+    return Promise.resolve();
   });
   const stopMicFnRef = useRef(stopMic);
   const startMeteringFnRef = useRef(() => {
@@ -506,7 +561,9 @@ export function FluxAgentBench({
   const stopMeteringFnRef = useRef(stopMetering);
 
   useEffect(() => {
-    startMicFnRef.current = () => { return startMic().catch(() => {}); };
+    startMicFnRef.current = (audioContext: AudioContext) => {
+      return startMic(audioContext).catch(() => {});
+    };
     stopMicFnRef.current = stopMic;
     setMicSuppressedRef.current = setMicSuppressed;
     startMeteringFnRef.current = () => {

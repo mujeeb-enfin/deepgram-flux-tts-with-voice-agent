@@ -1,18 +1,35 @@
 "use client";
 
 import { useRef, useCallback } from "react";
+import {
+  DEEPGRAM_WIRE_OUTPUT_SAMPLE_RATE,
+  type AudioBufferLike,
+  type AudioBufferSourceNodeLike,
+  type AudioContextLike,
+} from "@/lib/audio/sample-rate";
+import {
+  computeScheduleAt,
+  createScheduleState,
+  hasQueuedAudio,
+  registerBufferSource,
+  removeBufferSource,
+  updateScheduledEnd,
+  type ScheduleState,
+} from "@/lib/audio/schedule-tracker";
 
-const OUTPUT_SAMPLE_RATE = 24000;
-
+/**
+ * Playback receives Deepgram's 24kHz linear16 PCM and schedules it back-to-back
+ * on the host's AudioContext. The context is owned by the caller (FluxAgentBench)
+ * so the mic and the speakers share one graph — that is what makes the browser's
+ * echoCancellation effective.
+ */
 export function useAudioPlayback() {
   const playbackContextRef = useRef<AudioContext | null>(null);
   const playbackGainRef = useRef<GainNode | null>(null);
   const playbackAnalyserRef = useRef<AnalyserNode | null>(null);
-  const playbackHeadRef = useRef(0);
-  const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
+  const scheduleStateRef = useRef<ScheduleState>(createScheduleState());
 
-  const initPlayback = useCallback(() => {
-    const audioContext = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+  const initPlayback = useCallback((audioContext: AudioContext) => {
     const gainNode = audioContext.createGain();
     const analyserNode = audioContext.createAnalyser();
     analyserNode.fftSize = 256;
@@ -21,8 +38,7 @@ export function useAudioPlayback() {
     playbackContextRef.current = audioContext;
     playbackGainRef.current = gainNode;
     playbackAnalyserRef.current = analyserNode;
-    playbackHeadRef.current = 0;
-    activeSourcesRef.current = [];
+    scheduleStateRef.current = createScheduleState();
   }, []);
 
   const queueAudio = useCallback((rawBuffer: ArrayBuffer) => {
@@ -33,7 +49,11 @@ export function useAudioPlayback() {
     const pcmSamples = new Int16Array(rawBuffer);
     if (!pcmSamples.length) return;
 
-    const audioBuffer = audioContext.createBuffer(1, pcmSamples.length, OUTPUT_SAMPLE_RATE);
+    const audioBuffer = audioContext.createBuffer(
+      1,
+      pcmSamples.length,
+      DEEPGRAM_WIRE_OUTPUT_SAMPLE_RATE
+    );
     const channelData = audioBuffer.getChannelData(0);
     for (let i = 0; i < pcmSamples.length; i++) {
       channelData[i] = pcmSamples[i] / 32768;
@@ -43,41 +63,53 @@ export function useAudioPlayback() {
     sourceNode.buffer = audioBuffer;
     sourceNode.connect(gainNode);
 
-    const currentTime = audioContext.currentTime;
-    if (playbackHeadRef.current < currentTime) {
-      playbackHeadRef.current = currentTime + 0.04;
-    }
-    sourceNode.start(playbackHeadRef.current);
-    playbackHeadRef.current += audioBuffer.duration;
+    const audioContextLike: AudioContextLike = audioContext as unknown as AudioContextLike;
+    const scheduleState = scheduleStateRef.current;
+    const scheduleAt = computeScheduleAt(
+      audioContextLike.currentTime,
+      scheduleState.lastQueuedEndRef.current
+    );
+    const sourceNodeLike = sourceNode as unknown as AudioBufferSourceNodeLike;
+    sourceNodeLike.start(scheduleAt);
+    const audioBufferLike = audioBuffer as unknown as AudioBufferLike;
+    updateScheduledEnd(scheduleState, scheduleAt + audioBufferLike.duration);
 
-    activeSourcesRef.current.push(sourceNode);
+    registerBufferSource(scheduleState, sourceNode);
     sourceNode.onended = () => {
-      activeSourcesRef.current = activeSourcesRef.current.filter((s) => s !== sourceNode);
+      removeBufferSource(scheduleState, sourceNode);
     };
   }, []);
 
   const stopPlayback = useCallback((): boolean => {
     const audioContext = playbackContextRef.current;
-    const hadQueuedAudio =
-      activeSourcesRef.current.length > 0 ||
-      (audioContext !== null && playbackHeadRef.current > audioContext.currentTime);
+    const scheduleState = scheduleStateRef.current;
+    const hadQueuedAudio = hasQueuedAudio(
+      scheduleState,
+      (audioContext as unknown as AudioContextLike)?.currentTime ?? 0
+    );
 
-    activeSourcesRef.current.forEach((source) => {
-      try { source.stop(); } catch { /* already stopped */ }
+    scheduleState.activeSourcesRef.current.forEach((source) => {
+      try {
+        source.stop();
+      } catch {
+        /* already stopped */
+      }
     });
-    activeSourcesRef.current = [];
-    playbackHeadRef.current = audioContext ? audioContext.currentTime : 0;
+    scheduleStateRef.current = createScheduleState();
     return hadQueuedAudio;
   }, []);
 
   const destroyPlayback = useCallback(() => {
     stopPlayback();
-    if (playbackContextRef.current) {
-      playbackContextRef.current.close();
-      playbackContextRef.current = null;
+    if (playbackGainRef.current) {
+      playbackGainRef.current.disconnect();
+      playbackGainRef.current = null;
     }
-    playbackGainRef.current = null;
-    playbackAnalyserRef.current = null;
+    if (playbackAnalyserRef.current) {
+      playbackAnalyserRef.current.disconnect();
+      playbackAnalyserRef.current = null;
+    }
+    playbackContextRef.current = null;
   }, [stopPlayback]);
 
   return {
