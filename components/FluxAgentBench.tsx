@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { useDeepgramAgent, type TranscriptTurn } from "@/hooks/useDeepgramAgent";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useDeepgramAgent, type TranscriptTurn, type DeepgramAgentCallbacks } from "@/hooks/useDeepgramAgent";
 import { useAudioPlayback } from "@/hooks/useAudioPlayback";
 import { useMicrophone } from "@/hooks/useMicrophone";
 import { useVuMeter } from "@/hooks/useVuMeter";
@@ -351,7 +351,10 @@ export function FluxAgentBench({
   const initialProductConfig = defaultProduct?.config ?? EMPTY_PRODUCT_CONFIG;
 
   const [apiKeyValue] = useState(initialApiKey);
-  const [voiceModel, setVoiceModel] = useState(initialVoiceModel);
+  const [voiceModel, setVoiceModel] = useState(() => {
+    const regionVoice = getFluxVoiceForBrowserRegion();
+    return regionVoice ?? initialVoiceModel;
+  });
   const [thinkModel, setThinkModel] = useState(initialThinkModel);
   const [speed, setSpeed] = useState(initialSpeed);
   const [eotThreshold, setEotThreshold] = useState(initialEotThreshold);
@@ -362,20 +365,20 @@ export function FluxAgentBench({
   const [productConfigJson, setProductConfigJson] = useState(
     JSON.stringify(initialProductConfig, null, 2)
   );
-  const [greeting, setGreeting] = useState(() =>
-    buildGreeting(initialProductConfig.productName, getAgentNameForVoice(initialVoiceModel))
-  );
+  const [greetingOverride, setGreetingOverride] = useState<string | null>(null);
+  const derivedGreeting = useMemo(() => {
+    let productName = initialProductConfig.productName;
+    try {
+      const parsed = JSON.parse(productConfigJson) as ProductConfig;
+      productName = parsed.productName;
+    } catch {
+      // invalid JSON — use default product name
+    }
+    return buildGreeting(productName, getAgentNameForVoice(voiceModel));
+  }, [productConfigJson, voiceModel, initialProductConfig.productName]);
+  const greeting = greetingOverride ?? derivedGreeting;
   const [transcriptTurns, setTranscriptTurns] = useState<TranscriptTurn[]>([]);
 
-  const regionVoiceAppliedRef = useRef(false);
-  useEffect(() => {
-    if (regionVoiceAppliedRef.current) return;
-    regionVoiceAppliedRef.current = true;
-    const regionVoice = getFluxVoiceForBrowserRegion();
-    if (regionVoice && regionVoice !== voiceModel) {
-      setVoiceModel(regionVoice);
-    }
-  }, []);
 
   const handleProductFileChange = useCallback(
     (fileName: string) => {
@@ -390,17 +393,6 @@ export function FluxAgentBench({
     },
     [availableProducts]
   );
-
-  useEffect(() => {
-    let productName = initialProductConfig.productName;
-    try {
-      const parsed = JSON.parse(productConfigJson) as ProductConfig;
-      productName = parsed.productName;
-    } catch {
-      // invalid JSON — use default product name
-    }
-    setGreeting(buildGreeting(productName, getAgentNameForVoice(voiceModel)));
-  }, [productConfigJson, voiceModel]);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const isAgentSpeakingRef = useRef(false);
@@ -463,7 +455,7 @@ export function FluxAgentBench({
     audioContextRef.current = null;
   }, []);
 
-  const agentCallbacks = useRef({
+  const agentCallbacks = useMemo<DeepgramAgentCallbacks>(() => ({
     onAudioData: (buffer: ArrayBuffer) => {
       queueAudio(buffer);
     },
@@ -532,7 +524,7 @@ export function FluxAgentBench({
       isAgentSpeakingRef.current = false;
       lastAgentTurnIndexRef.current = null;
     },
-  }).current;
+  }), [ensureAudioContext, initPlayback, queueAudio, stopPlayback, destroyPlayback, releaseAudioContext]);
 
   const {
     connectionState,
@@ -648,7 +640,7 @@ export function FluxAgentBench({
             productConfigJson={productConfigJson}
             onProductConfigJsonChange={setProductConfigJson}
             greeting={greeting}
-            onGreetingChange={setGreeting}
+            onGreetingChange={setGreetingOverride}
             onApplyLive={handleApplyPromptLive}
             isConnected={isConnected}
             availableProducts={availableProducts}

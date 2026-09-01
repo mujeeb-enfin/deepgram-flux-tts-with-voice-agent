@@ -30,7 +30,7 @@ export interface TranscriptTurn {
   wasCutOff: boolean;
 }
 
-interface DeepgramAgentCallbacks {
+export interface DeepgramAgentCallbacks {
   onAudioData: (buffer: ArrayBuffer) => void;
   onSettingsApplied: () => void | Promise<void>;
   onUserStartedSpeaking: () => void;
@@ -66,6 +66,16 @@ export function useDeepgramAgent(callbacks: DeepgramAgentCallbacks) {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(buffer);
     }
+  }, []);
+
+  const cleanupConnection = useCallback(() => {
+    if (keepAliveTimerRef.current) {
+      clearInterval(keepAliveTimerRef.current);
+      keepAliveTimerRef.current = null;
+    }
+    websocketRef.current = null;
+    setConnectionState("idle");
+    setCurrentPhase("not connected");
   }, []);
 
   const connect = useCallback(
@@ -245,18 +255,8 @@ export function useDeepgramAgent(callbacks: DeepgramAgentCallbacks) {
         callbacks.onDisconnected();
       };
     },
-    [addLogEntry, callbacks]
+    [addLogEntry, callbacks, cleanupConnection]
   );
-
-  const cleanupConnection = useCallback(() => {
-    if (keepAliveTimerRef.current) {
-      clearInterval(keepAliveTimerRef.current);
-      keepAliveTimerRef.current = null;
-    }
-    websocketRef.current = null;
-    setConnectionState("idle");
-    setCurrentPhase("not connected");
-  }, []);
 
   const disconnect = useCallback(() => {
     if (websocketRef.current) {
