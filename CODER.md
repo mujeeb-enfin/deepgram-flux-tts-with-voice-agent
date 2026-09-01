@@ -135,7 +135,7 @@ _(not specified — match the style of a nearby existing file)_
 
 ## 6. Architecture rules & patterns
 
-- Modules with Event Buz
+- Event-driven: WebSocket messages drive state, no polling or timers
 
 ## 7. Don'ts / forbidden patterns
 
@@ -161,75 +161,17 @@ _(none)_
 - **Unit / integration runner**: Vitest
 - **E2E tool**: Playwright
 
-## E2E Testing Rules
-
-- **Enumerate before you write**: open every in-scope page and list every interactive element *before* the first test. Specs written from memory or a screenshot miss conditionally-rendered and nested controls.
-- **Walk nested structure to the leaf**: menu → submenu → sub-submenu, every dropdown's full option list, every conditional field that appears only after another is filled. "The dropdown opens" is not coverage.
-- **Flag unknowns, never guess**: if an element's expected behaviour isn't clear from the UI, mark it `UNKNOWN — needs confirmation` and ask. An invented assertion produces false-positive coverage, which is worse than a gap.
-- **Locator priority**: `getByRole` > `getByLabel` > `getByTestId` > `getByText` (exact) > CSS. Never use auto-generated class names or index-based selectors as the primary locator — they break on every refactor.
-- **One element, one stable locator**: scope ambiguous matches to their container (`row.getByRole('button', { name: 'Edit' })`). Repeatedly needing `.nth()` is a signal to add a `data-testid`, not to index harder.
-- **Buttons**: assert enabled/disabled state for the context, the click's real effect, that a disabled button does nothing, that async clicks show a pending state until they resolve, and that destructive actions confirm first.
-- **Forms**: cover default state, valid submit (assert the success signal), required-field validation on empty submit, per-field format validation, error clearing on correction, and conditional field show/hide.
-- **Forms, reset paths**: if a reset or cancel control exists, assert it clears the fields and any validation errors — a half-cleared form is a common regression that a submit-only test never catches.
-- **Dropdowns**: assert the *full* option list, not a count. Selecting an option updates the display value and triggers dependent behaviour. Verify keyboard open/select and close on Escape and outside click.
-- **Links**: assert the resolved target, not just presence. Internal links land on the right route; `target="_blank"` links must carry `rel="noopener noreferrer"` — treat a missing rel as a security failure.
-- **Links, inactive state**: a disabled or current-page link (breadcrumb, active nav item) must not navigate. Assert the URL is unchanged after clicking it, rather than assuming the styling implies the behaviour.
-- **Menus**: locate items structurally (parent → child chain), never by absolute position or timing. Assert each item's destination, that the active route is marked via class/attribute, and that menus close on select and outside click.
-- **Filters**: assert the actual filtered result set, not "the list changed". Cover each control alone, a multi-filter combination, clear-one, clear-all, the empty-result state, and URL/query-param deep links.
-- **Filters, persistence**: if filter state is meant to survive pagination or a tab switch, assert it actually does. Silent filter reset on page 2 is a defect users hit constantly and specs rarely cover.
-- **Search**: cover the empty query, a matching query, a no-match empty state, whitespace-only and very long input, and that clearing the box restores the prior list.
-- **Search, request volume**: if the input is debounced or throttled, assert the request count for a burst of typing. A debounce that silently stops working is invisible to result-only assertions.
-- **Tables**: assert row count and key cell data, sorting per column in both directions, pagination boundaries (first/last page), and every row-level action independently.
-- **Modals**: assert focus moves into the dialog on open, its action buttons perform the real operation and close (or stay open) as designed, and it closes via *each* of button, Escape, and backdrop click.
-- **Toasts**: assert the correct message text appears for both success and error paths, and that it either auto-dismisses within its designed window or can be dismissed manually — whichever the design specifies.
-- **One spec per journey, not per element**: name the file for the flow (`checkout.spec.ts`), group sub-features with `describe` blocks, and keep each test to one logical behaviour so a failure names its own cause.
-- **No inter-test dependencies**: use fixtures for auth state and seeded data. No test may rely on execution order or on state a previous test left behind.
-- **Negative paths are mandatory**: every form needs an invalid-submit test, every filtered list an empty-result test, every destructive action a cancel test, and every async call a simulated failure via `page.route()`.
-- **Never use `waitForTimeout`**: fixed sleeps are the main source of flaky suites. Use web-first assertions (`toBeVisible`, `toHaveText`), or wait on the specific network response the UI depends on.
-- **Engine-agnostic assertions**: specs must pass on every configured browser project (chromium, firefox, webkit). Don't rely on engine-specific timing, focus order, or CSS behaviour that only holds in one of them.
-- **Fail on console errors**: attach console and uncaught-exception listeners in a shared fixture before navigation, and assert both are empty at test end. A control that renders correctly while throwing is not passing.
-- **Fail on unexpected network errors**: record responses with status >= 400 and assert none occurred on a happy path. A negative-path test asserts its *specific* expected status — any other 4xx/5xx still fails.
-- **Allow-list errors explicitly, never silently**: a known-noisy error needs a documented reason and a linked ticket in a shared allow-list file. Blanket suppression turns a real regression into a green run.
-- **Check server logs for the test window**: where logs are reachable, assert no ERROR/FATAL lines were emitted by the test's actions. If they aren't reachable in this environment, record that as a stated coverage gap.
-- **Emit a per-run error report**: write `{ test, consoleErrors, networkErrors, serverErrors }` per test as a CI artifact. A pass/fail boolean hides a suite that is going green while getting noisier every week.
-- **Automated a11y scan per page**: run an axe-core scan (`@axe-core/playwright` or `cypress-axe`) in the shared fixture and fail on violations. It catches contrast, missing labels, bad ARIA, and focus traps that manual review misses.
-- **Keyboard-only path**: for each primary journey, complete it using only Tab / Shift+Tab / Enter / Escape. Assert focus order is logical and no control is reachable by mouse alone — this is the most common a11y regression.
-- **Visual regression on stable views**: snapshot each key page and component state (`toHaveScreenshot` / equivalent) so unintended layout and style changes fail automatically instead of waiting for someone to notice.
-- **Mask the volatile parts of snapshots**: exclude timestamps, avatars, random IDs, and animations from visual comparisons. An un-masked snapshot fails on every run, and a test that always fails gets deleted.
-- **Test the responsive breakpoints you ship**: run the critical journeys at mobile, tablet, and desktop widths. A desktop-only suite cannot catch a nav that collapses wrongly or a control pushed off-screen.
-- **Definition of done**: every enumerated element maps to at least one assertion, negative cases exist, no fixed sleeps remain, error assertions run via shared fixture, and the spec header notes coverage plus open UNKNOWNs.
+_(No E2E tests in this repo yet. When added, follow the E2E rules from the sibling project.)_
 
 ## Git & workflow
 
 - **Commits**: Use Conventional Commits: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`. One logical change per commit.
 
-## API conventions
+## Local servers & ports
 
-- **Style**: REST — resource-oriented endpoints. Use proper HTTP verbs and status codes.
-
-## Deployment
-
-- **Target**: Docker / Docker Compose. Ensure Dockerfile is optimised (multi-stage builds, layer caching).
-
-### Local servers & ports (IMPORTANT)
-
-The app runs a **custom server** (`server.ts` via `tsx`), not bare `next`, so the
-port comes from the `PORT` env (NOT the `-p` flag). Keep dev and prod on
-**separate ports** so a hot-reloading dev server never clobbers the production
-build that the Cloudflare tunnel serves.
-
-- **Dev → 3444**: `npm run dev` (forces `PORT=3444`, `tsx watch`, hot reload) with SSL enabled.
-  NEVER run the dev server on 3443.
-- **Production → 3443**: `npm start` (or `PORT=3443 npm start`). This is what
-  the tunnel `ai-sales-agent.mr-coder.io` serves. Build first:
-  `npx next build --webpack` (webpack, not turbopack), then `npm start`.
-- **Production (self-healing) → 3443**: `PORT=3443 npm run start:guard`. Wraps
-  the server in `scripts/prod-supervisor.mjs`, which respawns it (capped
-  backoff) if the process is killed — a `kill-port 3443`, a redeploy, or a
-  crash no longer takes the public demo offline. Prefer this for the live
-  tunnel; plain `npm start` is fine for one-off local runs.
+- **Dev**: `npm run dev` — runs Next.js with Turbopack on the default port.
+- **Production → 3443**: `npx next build`, then `npm start` (binds to port 3443 via `--port 3443` in the start script).
 - To free a port, use `npx kill-port <port>` — never "kill all node processes".
-- For isolated test servers, override the port: `PORT=4005 npm start`.
 
 ---
 
@@ -242,7 +184,5 @@ build that the Cloudflare tunnel serves.
 - **Reading before editing**: read the full file (or the containing module) to understand context — never patch blind.
 - **Matching existing style**: read a nearby file first; match its naming, imports, and error handling.
 - **Commit / summary messages**: describe the *why*, not the *what* — the diff already shows the what.
-- **Dev Port**: 3444 with SSL
-- **Production Port**: 3443 DOCKER, never kill 3443 as this is with docker now, you can use npm run build:prod:restart to restart the docker 3443 port
-- **Do not kill all node processes**: if you wanted to kill a port, use `npx kill-port {port number}` command
-- **Do not run `git chekout`**: you should not use `git checkout` command even there are un committed changes.
+- **Production Port**: 3443 — use `npx kill-port 3443` to free it, never "kill all node processes".
+- **Do not run `git checkout`**: do not use `git checkout` even when there are uncommitted changes.
