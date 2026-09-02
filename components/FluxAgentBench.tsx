@@ -558,7 +558,16 @@ export function FluxAgentBench({
 
   useEffect(() => {
     startMicFnRef.current = (audioContext: AudioContext) => {
-      return startMic(audioContext).catch(() => {});
+      return startMic(audioContext).catch((micStartError) => {
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            component: "flux_agent_bench",
+            event: "mic_start_failed",
+            payload: { error: String(micStartError) },
+          })
+        );
+      });
     };
     stopMicFnRef.current = stopMic;
     setMicSuppressedRef.current = setMicSuppressed;

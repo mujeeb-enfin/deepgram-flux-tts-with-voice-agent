@@ -52,4 +52,9 @@ describe("audio context ownership lifecycle (FluxAgentBench)", () => {
     expect(benchSource).toContain("initPlayback(audioContext)");
     expect(benchSource).toContain("startMicFnRef.current(audioContext)");
   });
+
+  it("logs mic start failure instead of swallowing (no bare catch)", () => {
+    expect(benchSource).toContain('event: "mic_start_failed"');
+    expect(benchSource).not.toContain(".catch(() => {})");
+  });
 });
