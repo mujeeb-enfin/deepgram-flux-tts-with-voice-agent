@@ -322,6 +322,7 @@ export function ConnectionPanel({
             onClick={onConnect}
             disabled={isConnected || isConnecting}
             title="Connect and talk"
+            aria-label="Connect and talk"
             className={`${buttonBase} border-signal bg-signal text-white hover:border-signal-hover hover:bg-signal-hover px-2.5`}
           >
             <ConnectIcon />
@@ -331,6 +332,7 @@ export function ConnectionPanel({
             onClick={onDisconnect}
             disabled={!isConnected}
             title="Disconnect"
+            aria-label="Disconnect"
             className={`${buttonBase} border-danger bg-danger text-white px-2.5`}
           >
             <DisconnectIcon />
@@ -340,6 +342,7 @@ export function ConnectionPanel({
             onClick={onToggleMute}
             disabled={!isConnected}
             title={isMicMuted ? "Unmute mic" : "Mute mic"}
+            aria-label={isMicMuted ? "Unmute mic" : "Mute mic"}
             className={`${buttonBase} border-line bg-panel text-ink hover:border-ink3 px-2.5`}
           >
             {isMicMuted ? <MicOffIcon /> : <MicOnIcon />}
