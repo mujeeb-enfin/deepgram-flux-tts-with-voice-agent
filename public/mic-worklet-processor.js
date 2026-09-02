@@ -13,7 +13,7 @@ class MicWorkletProcessor extends AudioWorkletProcessor {
     this._suppressed = false;
     this._buffer = [];
     this._bufferLength = 0;
-    this._batchSize = 1024;
+    this._batchSize = 4096;
     this.port.onmessage = (event) => {
       if (event.data.type === "mute") this._muted = event.data.value;
       if (event.data.type === "suppress") this._suppressed = event.data.value;
