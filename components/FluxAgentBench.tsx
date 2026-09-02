@@ -351,10 +351,16 @@ export function FluxAgentBench({
   const initialProductConfig = defaultProduct?.config ?? EMPTY_PRODUCT_CONFIG;
 
   const [apiKeyValue] = useState(initialApiKey);
-  const [voiceModel, setVoiceModel] = useState(() => {
+  const [voiceModel, setVoiceModel] = useState(initialVoiceModel);
+  const regionVoiceAppliedRef = useRef(false);
+  useEffect(() => {
+    if (regionVoiceAppliedRef.current) return;
+    regionVoiceAppliedRef.current = true;
     const regionVoice = getFluxVoiceForBrowserRegion();
-    return regionVoice ?? initialVoiceModel;
-  });
+    if (regionVoice && regionVoice !== voiceModel) {
+      setVoiceModel(regionVoice);
+    }
+  }, []);
   const [thinkModel, setThinkModel] = useState(initialThinkModel);
   const [speed, setSpeed] = useState(initialSpeed);
   const [eotThreshold, setEotThreshold] = useState(initialEotThreshold);
