@@ -163,18 +163,7 @@ export function useDeepgramAgent(callbacks: DeepgramAgentCallbacks) {
         let parsed: Record<string, unknown>;
         try {
           parsed = JSON.parse(event.data);
-        } catch (websocketParseError) {
-          console.warn(
-            JSON.stringify({
-              level: "warn",
-              component: "use_deepgram_agent",
-              event: "websocket_message_parse_failed",
-              payload: {
-                error: String(websocketParseError),
-                preview: String(event.data).slice(0, 100),
-              },
-            })
-          );
+        } catch {
           return;
         }
 
