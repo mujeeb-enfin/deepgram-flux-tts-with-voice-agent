@@ -2,16 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
 
-/**
- * Extract the production ensureAudioContext / releaseAudioContext implementations
- * from FluxAgentBench.tsx so the lifecycle contract is tested against the real
- * source rather than a copied mock.
- */
 function readFluxAgentBench(): string {
   const filePath = path.resolve(
     process.cwd(),
     "components/FluxAgentBench.tsx"
   );
+  return fs.readFileSync(filePath, "utf8");
+}
+
+function readUseMicrophone(): string {
+  const filePath = path.resolve(process.cwd(), "hooks/useMicrophone.ts");
   return fs.readFileSync(filePath, "utf8");
 }
 
@@ -51,5 +51,58 @@ describe("audio context ownership lifecycle (FluxAgentBench)", () => {
     expect(benchSource).toContain("const audioContext = ensureAudioContext();");
     expect(benchSource).toContain("initPlayback(audioContext)");
     expect(benchSource).toContain("startMicFnRef.current(audioContext)");
+  });
+
+  it("logs mic start failure instead of swallowing (no bare catch)", () => {
+    expect(benchSource).toContain('event: "mic_start_failed"');
+    expect(benchSource).not.toContain(".catch(() => {})");
+  });
+});
+
+describe("AudioWorklet support in useMicrophone", () => {
+  let micSource: string;
+
+  beforeEach(() => {
+    micSource = readUseMicrophone();
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("attempts AudioWorkletNode before ScriptProcessorNode", () => {
+    const workletIndex = micSource.indexOf("audioWorklet.addModule");
+    const scriptIndex = micSource.indexOf("createScriptProcessor");
+    expect(workletIndex).toBeGreaterThan(-1);
+    expect(scriptIndex).toBeGreaterThan(-1);
+    expect(workletIndex).toBeLessThan(scriptIndex);
+  });
+
+  it("loads mic-worklet-processor.js from the public dir", () => {
+    expect(micSource).toContain(
+      'addModule("/mic-worklet-processor.js")'
+    );
+  });
+
+  it("falls back to ScriptProcessorNode on worklet failure", () => {
+    expect(micSource).toContain("if (!workletLoaded)");
+    expect(micSource).toContain("createScriptProcessor(4096, 1, 1)");
+  });
+
+  it("logs worklet success and fallback events", () => {
+    expect(micSource).toContain('event: "audio_worklet_loaded"');
+    expect(micSource).toContain('event: "audio_worklet_fallback"');
+  });
+
+  it("routes mute/suppress state to the worklet via MessagePort", () => {
+    expect(micSource).toContain('type: "mute"');
+    expect(micSource).toContain('type: "suppress"');
+    expect(micSource).toContain("port.postMessage");
+  });
+
+  it("cleans up worklet node in stopMic", () => {
+    expect(micSource).toContain("micWorkletNodeRef.current.disconnect()");
+    expect(micSource).toContain("micWorkletNodeRef.current.port.close()");
   });
 });

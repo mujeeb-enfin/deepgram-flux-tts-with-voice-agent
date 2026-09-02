@@ -88,13 +88,24 @@ export function useAudioPlayback() {
       (audioContext as unknown as AudioContextLike)?.currentTime ?? 0
     );
 
+    let alreadyStoppedSourceCount = 0;
     scheduleState.activeSourcesRef.current.forEach((source) => {
       try {
         source.stop();
       } catch {
-        /* already stopped */
+        alreadyStoppedSourceCount++;
       }
     });
+    if (alreadyStoppedSourceCount > 0) {
+      console.info(
+        JSON.stringify({
+          level: "info",
+          component: "use_audio_playback",
+          event: "stop_playback_already_stopped",
+          payload: { count: alreadyStoppedSourceCount },
+        })
+      );
+    }
     scheduleStateRef.current = createScheduleState();
     return hadQueuedAudio;
   }, []);
