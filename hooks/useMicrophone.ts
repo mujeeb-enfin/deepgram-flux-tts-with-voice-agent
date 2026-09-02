@@ -73,6 +73,7 @@ export function useMicrophone(sendAudioChunk: (buffer: ArrayBuffer) => void) {
             value: isMicSuppressedRef.current,
           });
           analyserNode.connect(workletNode);
+          workletNode.connect(audioContext.destination);
           micWorkletNodeRef.current = workletNode;
           isUsingWorkletRef.current = true;
           workletLoaded = true;
