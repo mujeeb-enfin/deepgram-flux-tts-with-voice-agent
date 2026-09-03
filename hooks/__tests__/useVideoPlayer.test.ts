@@ -1,18 +1,69 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import fs from "fs";
-import path from "path";
+import {
+  dispatchVideoFunctionCall,
+  resetVideoElement,
+  INITIAL_VIDEO_PLAYER_STATE,
+  ALLOWED_PLAYBACK_SPEEDS,
+  DEFAULT_OVERLAY_DURATION_SECONDS,
+  type VideoPlayerState,
+  type VideoFunctionCallbacks,
+} from "../useVideoPlayer.handlers";
 
-function readUseVideoPlayer(): string {
-  const filePath = path.resolve(process.cwd(), "hooks/useVideoPlayer.ts");
-  return fs.readFileSync(filePath, "utf8");
+function createMockVideoElement(
+  overrides?: Partial<HTMLVideoElement>
+): HTMLVideoElement {
+  return {
+    currentTime: 0,
+    duration: 300,
+    paused: true,
+    playbackRate: 1,
+    muted: true,
+    play: vi.fn().mockResolvedValue(undefined),
+    pause: vi.fn(),
+    ...overrides,
+  } as unknown as HTMLVideoElement;
 }
 
-describe("useVideoPlayer hook (source-level behavioral verification)", () => {
-  let hookSource: string;
+function createMockCallbacks(): VideoFunctionCallbacks & {
+  capturedStateUpdates: Array<(prev: VideoPlayerState) => VideoPlayerState>;
+  capturedTimers: Array<ReturnType<typeof setTimeout>>;
+} {
+  const capturedStateUpdates: Array<
+    (prev: VideoPlayerState) => VideoPlayerState
+  > = [];
+  const capturedTimers: Array<ReturnType<typeof setTimeout>> = [];
+  return {
+    setVideoPlayerState: vi.fn((updater) => {
+      capturedStateUpdates.push(updater);
+    }),
+    clearOverlayTimer: vi.fn(),
+    setOverlayTimer: vi.fn((timer) => {
+      capturedTimers.push(timer);
+    }),
+    capturedStateUpdates,
+    capturedTimers,
+  };
+}
+
+function applyStateUpdate(
+  callbacks: ReturnType<typeof createMockCallbacks>,
+  base: VideoPlayerState = INITIAL_VIDEO_PLAYER_STATE
+): VideoPlayerState {
+  let currentState = base;
+  for (const updater of callbacks.capturedStateUpdates) {
+    currentState = updater(currentState);
+  }
+  return currentState;
+}
+
+describe("dispatchVideoFunctionCall", () => {
+  let mockVideoElement: HTMLVideoElement;
+  let mockCallbacks: ReturnType<typeof createMockCallbacks>;
 
   beforeEach(() => {
-    hookSource = readUseVideoPlayer();
     vi.useFakeTimers();
+    mockVideoElement = createMockVideoElement();
+    mockCallbacks = createMockCallbacks();
   });
 
   afterEach(() => {
@@ -20,117 +71,400 @@ describe("useVideoPlayer hook (source-level behavioral verification)", () => {
     vi.restoreAllMocks();
   });
 
-  it("seek_and_play sets currentTime, calls play(), and returns confirmation", () => {
-    expect(hookSource).toContain("videoElement.currentTime = clampedTimestamp");
-    expect(hookSource).toContain("videoElement.play()");
-    expect(hookSource).toContain("isVideoPlaying: true");
-    expect(hookSource).toContain('event: "video_seek_and_play"');
+  /* ------------------------------------------------------------------ */
+  /*  seek_and_play                                                      */
+  /* ------------------------------------------------------------------ */
+  describe("seek_and_play", () => {
+    it("sets currentTime and calls play() at the target timestamp", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "seek_and_play",
+        '{"timestamp_seconds": 45}',
+        mockCallbacks
+      );
+
+      expect(mockVideoElement.currentTime).toBe(45);
+      expect(mockVideoElement.play).toHaveBeenCalledOnce();
+      const updatedState = applyStateUpdate(mockCallbacks);
+      expect(updatedState.isVideoPlaying).toBe(true);
+      expect(videoFunctionResult).toContain("45 seconds");
+    });
+
+    it("clamps timestamp to video duration to prevent out-of-bounds seek", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "seek_and_play",
+        '{"timestamp_seconds": 999}',
+        mockCallbacks
+      );
+
+      expect(mockVideoElement.currentTime).toBe(300);
+      expect(videoFunctionResult).toContain("300 seconds");
+    });
+
+    it("rejects NaN timestamp with error message", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "seek_and_play",
+        '{"timestamp_seconds": "hello"}',
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toContain("Invalid timestamp");
+      expect(mockVideoElement.play).not.toHaveBeenCalled();
+      expect(mockCallbacks.setVideoPlayerState).not.toHaveBeenCalled();
+    });
+
+    it("rejects negative timestamp", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "seek_and_play",
+        '{"timestamp_seconds": -10}',
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toContain("Invalid timestamp");
+      expect(mockVideoElement.play).not.toHaveBeenCalled();
+    });
+
+    it("accepts timestamp zero as valid seek-to-start", () => {
+      dispatchVideoFunctionCall(
+        mockVideoElement,
+        "seek_and_play",
+        '{"timestamp_seconds": 0}',
+        mockCallbacks
+      );
+
+      expect(mockVideoElement.currentTime).toBe(0);
+      expect(mockVideoElement.play).toHaveBeenCalledOnce();
+    });
+
+    it("uses target timestamp when duration is NaN (not yet loaded)", () => {
+      const unloadedVideoElement = createMockVideoElement({ duration: NaN } as unknown as Partial<HTMLVideoElement>);
+      dispatchVideoFunctionCall(
+        unloadedVideoElement,
+        "seek_and_play",
+        '{"timestamp_seconds": 45}',
+        mockCallbacks
+      );
+
+      expect(unloadedVideoElement.currentTime).toBe(45);
+    });
+
+    it("returns user-readable confirmation string", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "seek_and_play",
+        '{"timestamp_seconds": 72}',
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toMatch(/Video is now playing from 72 seconds/);
+    });
   });
 
-  it("seek_and_play clamps to video duration to prevent out-of-bounds seek", () => {
-    expect(hookSource).toContain(
-      "Math.min(targetTimestamp, videoElement.duration || Infinity)"
+  /* ------------------------------------------------------------------ */
+  /*  pause_video                                                        */
+  /* ------------------------------------------------------------------ */
+  describe("pause_video", () => {
+    it("calls pause() and sets isVideoPlaying to false", () => {
+      dispatchVideoFunctionCall(
+        mockVideoElement,
+        "pause_video",
+        "{}",
+        mockCallbacks
+      );
+
+      expect(mockVideoElement.pause).toHaveBeenCalledOnce();
+      const updatedState = applyStateUpdate(mockCallbacks, {
+        ...INITIAL_VIDEO_PLAYER_STATE,
+        isVideoPlaying: true,
+      });
+      expect(updatedState.isVideoPlaying).toBe(false);
+    });
+
+    it("includes currentTime in return string", () => {
+      const playingElement = createMockVideoElement({ currentTime: 42.7 } as Partial<HTMLVideoElement>);
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        playingElement,
+        "pause_video",
+        "{}",
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toContain("43 seconds");
+    });
+
+    it("does not call play()", () => {
+      dispatchVideoFunctionCall(
+        mockVideoElement,
+        "pause_video",
+        "{}",
+        mockCallbacks
+      );
+
+      expect(mockVideoElement.play).not.toHaveBeenCalled();
+    });
+  });
+
+  /* ------------------------------------------------------------------ */
+  /*  resume_video                                                       */
+  /* ------------------------------------------------------------------ */
+  describe("resume_video", () => {
+    it("calls play() and sets isVideoPlaying to true", () => {
+      dispatchVideoFunctionCall(
+        mockVideoElement,
+        "resume_video",
+        "{}",
+        mockCallbacks
+      );
+
+      expect(mockVideoElement.play).toHaveBeenCalledOnce();
+      const updatedState = applyStateUpdate(mockCallbacks);
+      expect(updatedState.isVideoPlaying).toBe(true);
+    });
+
+    it("does not modify currentTime", () => {
+      const pausedAtElement = createMockVideoElement({ currentTime: 42 } as Partial<HTMLVideoElement>);
+      dispatchVideoFunctionCall(
+        pausedAtElement,
+        "resume_video",
+        "{}",
+        mockCallbacks
+      );
+
+      expect(pausedAtElement.currentTime).toBe(42);
+    });
+  });
+
+  /* ------------------------------------------------------------------ */
+  /*  set_playback_speed                                                 */
+  /* ------------------------------------------------------------------ */
+  describe("set_playback_speed", () => {
+    it.each(ALLOWED_PLAYBACK_SPEEDS)(
+      "accepts allowed speed %s and sets playbackRate",
+      (allowedSpeed) => {
+        dispatchVideoFunctionCall(
+          mockVideoElement,
+          "set_playback_speed",
+          JSON.stringify({ speed: allowedSpeed }),
+          mockCallbacks
+        );
+
+        expect(mockVideoElement.playbackRate).toBe(allowedSpeed);
+        const updatedState = applyStateUpdate(mockCallbacks);
+        expect(updatedState.videoPlaybackSpeed).toBe(allowedSpeed);
+      }
     );
+
+    it("rejects speed=3 with error message listing allowed values", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "set_playback_speed",
+        '{"speed": 3}',
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toContain("Invalid speed");
+      expect(videoFunctionResult).toContain("0.5, 1, 1.5, 2");
+      expect(mockVideoElement.playbackRate).toBe(1);
+    });
+
+    it("rejects speed=0", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "set_playback_speed",
+        '{"speed": 0}',
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toContain("Invalid speed");
+    });
+
+    it("rejects non-numeric speed", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "set_playback_speed",
+        '{"speed": "fast"}',
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toContain("Invalid speed");
+    });
+
+    it("return message includes the speed value", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "set_playback_speed",
+        '{"speed": 1.5}',
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toContain("1.5x");
+    });
   });
 
-  it("seek_and_play rejects negative and NaN timestamps", () => {
-    expect(hookSource).toContain("isNaN(targetTimestamp) || targetTimestamp < 0");
+  /* ------------------------------------------------------------------ */
+  /*  show_overlay_text                                                  */
+  /* ------------------------------------------------------------------ */
+  describe("show_overlay_text", () => {
+    it("sets overlay text in state", () => {
+      dispatchVideoFunctionCall(
+        mockVideoElement,
+        "show_overlay_text",
+        '{"text": "Key Feature: Auto-Stop"}',
+        mockCallbacks
+      );
+
+      const updatedState = applyStateUpdate(mockCallbacks);
+      expect(updatedState.videoOverlayText).toBe("Key Feature: Auto-Stop");
+    });
+
+    it("uses default 5-second duration when not specified", () => {
+      dispatchVideoFunctionCall(
+        mockVideoElement,
+        "show_overlay_text",
+        '{"text": "hello"}',
+        mockCallbacks
+      );
+
+      expect(mockCallbacks.setOverlayTimer).toHaveBeenCalledOnce();
+
+      vi.advanceTimersByTime(DEFAULT_OVERLAY_DURATION_SECONDS * 1000);
+
+      const clearCall = mockCallbacks.capturedStateUpdates.at(-1);
+      expect(clearCall).toBeDefined();
+      const clearedState = clearCall!({
+        ...INITIAL_VIDEO_PLAYER_STATE,
+        videoOverlayText: "hello",
+      });
+      expect(clearedState.videoOverlayText).toBe("");
+    });
+
+    it("uses custom duration when specified", () => {
+      dispatchVideoFunctionCall(
+        mockVideoElement,
+        "show_overlay_text",
+        '{"text": "hello", "duration_seconds": 10}',
+        mockCallbacks
+      );
+
+      vi.advanceTimersByTime(9999);
+      expect(mockCallbacks.capturedStateUpdates).toHaveLength(1);
+
+      vi.advanceTimersByTime(1);
+      expect(mockCallbacks.capturedStateUpdates).toHaveLength(2);
+
+      const clearUpdater = mockCallbacks.capturedStateUpdates[1];
+      const clearedState = clearUpdater({
+        ...INITIAL_VIDEO_PLAYER_STATE,
+        videoOverlayText: "hello",
+      });
+      expect(clearedState.videoOverlayText).toBe("");
+    });
+
+    it("clears previous overlay timer before setting new one", () => {
+      dispatchVideoFunctionCall(
+        mockVideoElement,
+        "show_overlay_text",
+        '{"text": "first"}',
+        mockCallbacks
+      );
+      dispatchVideoFunctionCall(
+        mockVideoElement,
+        "show_overlay_text",
+        '{"text": "second"}',
+        mockCallbacks
+      );
+
+      expect(mockCallbacks.clearOverlayTimer).toHaveBeenCalledTimes(2);
+      expect(mockCallbacks.setOverlayTimer).toHaveBeenCalledTimes(2);
+    });
+
+    it("handles empty text string without crashing", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "show_overlay_text",
+        '{"text": ""}',
+        mockCallbacks
+      );
+
+      const updatedState = applyStateUpdate(mockCallbacks);
+      expect(updatedState.videoOverlayText).toBe("");
+      expect(videoFunctionResult).toContain("Showing overlay text");
+    });
   });
 
-  it("pause_video calls pause() and sets isVideoPlaying to false", () => {
-    expect(hookSource).toContain("videoElement.pause()");
-    expect(hookSource).toContain("isVideoPlaying: false");
-    expect(hookSource).toContain('event: "video_paused"');
+  /* ------------------------------------------------------------------ */
+  /*  Error paths                                                        */
+  /* ------------------------------------------------------------------ */
+  describe("error paths", () => {
+    it("returns error when video element is null", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        null,
+        "seek_and_play",
+        '{"timestamp_seconds": 10}',
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toContain("Video player is not available");
+      expect(mockCallbacks.setVideoPlayerState).not.toHaveBeenCalled();
+    });
+
+    it("returns error on malformed JSON arguments", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "seek_and_play",
+        "not json at all",
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toContain("Failed to parse function arguments");
+    });
+
+    it("returns error for unknown function name", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "explode_video",
+        "{}",
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toContain("Unknown video function: explode_video");
+    });
+
+    it("handles empty argumentsJson for no-arg functions without parse error", () => {
+      const videoFunctionResult = dispatchVideoFunctionCall(
+        mockVideoElement,
+        "pause_video",
+        "",
+        mockCallbacks
+      );
+
+      expect(videoFunctionResult).toContain("Video paused");
+      expect(mockVideoElement.pause).toHaveBeenCalledOnce();
+    });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  resetVideoElement                                                  */
+/* ------------------------------------------------------------------ */
+describe("resetVideoElement", () => {
+  it("resets video element to paused state at time 0 with speed 1", () => {
+    const playingElement = createMockVideoElement({
+      currentTime: 45,
+      playbackRate: 2,
+    } as Partial<HTMLVideoElement>);
+
+    resetVideoElement(playingElement);
+
+    expect(playingElement.pause).toHaveBeenCalledOnce();
+    expect(playingElement.currentTime).toBe(0);
+    expect(playingElement.playbackRate).toBe(1);
   });
 
-  it("resume_video calls play() and sets isVideoPlaying to true", () => {
-    expect(hookSource).toContain('case "resume_video"');
-    expect(hookSource).toContain('event: "video_resumed"');
-  });
-
-  it("set_playback_speed validates against ALLOWED_PLAYBACK_SPEEDS", () => {
-    expect(hookSource).toContain("ALLOWED_PLAYBACK_SPEEDS.includes(requestedSpeed)");
-    expect(hookSource).toContain("const ALLOWED_PLAYBACK_SPEEDS = [0.5, 1, 1.5, 2]");
-    expect(hookSource).toContain("videoElement.playbackRate = requestedSpeed");
-  });
-
-  it("set_playback_speed rejects invalid speeds with error message", () => {
-    expect(hookSource).toContain(
-      "!ALLOWED_PLAYBACK_SPEEDS.includes(requestedSpeed)"
-    );
-    expect(hookSource).toContain("Invalid speed:");
-  });
-
-  it("show_overlay_text sets overlayText and clears after timeout", () => {
-    expect(hookSource).toContain("clearOverlayTimer()");
-    expect(hookSource).toContain("videoOverlayText: overlayText");
-    expect(hookSource).toContain("overlayDurationSeconds * 1000");
-    expect(hookSource).toContain('videoOverlayText: ""');
-  });
-
-  it("show_overlay_text defaults to 5 seconds when no duration given", () => {
-    expect(hookSource).toContain(
-      "const DEFAULT_OVERLAY_DURATION_SECONDS = 5"
-    );
-    expect(hookSource).toContain(
-      "Number(overlayArguments.duration_seconds) || DEFAULT_OVERLAY_DURATION_SECONDS"
-    );
-  });
-
-  it("unknown function name logs a warning and returns error string", () => {
-    expect(hookSource).toContain('event: "unknown_video_function"');
-    expect(hookSource).toContain("Unknown video function:");
-  });
-
-  it("returns error when video element is null (no video configured)", () => {
-    expect(hookSource).toContain('event: "video_function_call_no_element"');
-    expect(hookSource).toContain(
-      "Video player is not available"
-    );
-  });
-
-  it("handles JSON parse failure in function arguments", () => {
-    expect(hookSource).toContain(
-      'event: "video_function_argument_parse_failed"'
-    );
-    expect(hookSource).toContain("Failed to parse function arguments:");
-  });
-
-  it("resetVideoPlayer pauses, resets currentTime/playbackRate, clears overlay", () => {
-    expect(hookSource).toContain("videoElement.pause()");
-    expect(hookSource).toContain("videoElement.currentTime = 0");
-    expect(hookSource).toContain("videoElement.playbackRate = 1");
-    expect(hookSource).toContain("setVideoPlayerState(INITIAL_VIDEO_PLAYER_STATE)");
-    expect(hookSource).toContain("clearOverlayTimer()");
-  });
-
-  it("initial state has isVideoPlaying=false, speed=1, no overlay", () => {
-    expect(hookSource).toContain("isVideoPlaying: false");
-    expect(hookSource).toContain("videoPlaybackSpeed: 1");
-    expect(hookSource).toContain('videoOverlayText: ""');
-  });
-
-  it("every play() call has a catch for autoplay policy errors", () => {
-    expect(hookSource).toContain('event: "video_play_failed"');
-    expect(hookSource).toContain('event: "video_resume_failed"');
-  });
-
-  it("structured logging present on every branch (no silent paths)", () => {
-    expect(hookSource).toContain('component: "use_video_player"');
-    const logEvents = [
-      "video_function_call_no_element",
-      "video_function_argument_parse_failed",
-      "video_seek_and_play",
-      "video_play_failed",
-      "video_paused",
-      "video_resumed",
-      "video_resume_failed",
-      "video_speed_changed",
-      "video_overlay_shown",
-      "unknown_video_function",
-    ];
-    for (const eventName of logEvents) {
-      expect(hookSource).toContain(`event: "${eventName}"`);
-    }
+  it("handles null element without throwing", () => {
+    expect(() => resetVideoElement(null)).not.toThrow();
   });
 });

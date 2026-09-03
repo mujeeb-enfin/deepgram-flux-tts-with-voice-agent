@@ -329,7 +329,7 @@ function buildProductPrompt(config: ProductConfig): string {
   return lines.join("\n");
 }
 
-export { buildProductPrompt };
+export { buildProductPrompt, buildVideoPromptSection };
 
 function buildVideoPromptSection(videoConfig: ProductVideoConfig): string {
   const lines: string[] = [];

@@ -1,74 +1,182 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import fs from "fs";
-import path from "path";
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, cleanup, act } from "@testing-library/react";
+import { createElement } from "react";
+import { VideoPlayerPanel } from "../VideoPlayerPanel";
 
-function readVideoPlayerPanel(): string {
-  return fs.readFileSync(
-    path.resolve(process.cwd(), "components/VideoPlayerPanel.tsx"),
-    "utf8"
-  );
+const mockDashPlayerDestroy = vi.fn();
+const mockDashPlayerInitialize = vi.fn();
+const mockDashPlayerUpdateSettings = vi.fn();
+
+vi.mock("dashjs", () => ({
+  MediaPlayer: () => ({
+    create: () => ({
+      initialize: mockDashPlayerInitialize,
+      updateSettings: mockDashPlayerUpdateSettings,
+      destroy: mockDashPlayerDestroy,
+    }),
+  }),
+}));
+
+const DEFAULT_VIDEO_URL = "https://example.com/test.mpd";
+
+function renderVideoPlayerPanel(
+  propOverrides: Partial<{
+    videoUrl: string;
+    onVideoElementReady: (el: HTMLVideoElement | null) => void;
+    isVideoPlaying: boolean;
+    videoPlaybackSpeed: number;
+    videoOverlayText: string;
+  }> = {}
+) {
+  const defaultProps = {
+    videoUrl: DEFAULT_VIDEO_URL,
+    onVideoElementReady: vi.fn(),
+    isVideoPlaying: false,
+    videoPlaybackSpeed: 1,
+    videoOverlayText: "",
+    ...propOverrides,
+  };
+  return {
+    ...render(createElement(VideoPlayerPanel, defaultProps)),
+    props: defaultProps,
+  };
 }
 
-describe("VideoPlayerPanel (source-level contract verification)", () => {
-  let panelSource: string;
-
+describe("VideoPlayerPanel (component rendering)", () => {
   beforeEach(() => {
-    panelSource = readVideoPlayerPanel();
+    vi.clearAllMocks();
   });
 
-  it("uses dashjs dynamic import for DASH adaptive streaming", () => {
-    expect(panelSource).toContain('await import("dashjs")');
-    expect(panelSource).toContain("dashjs.MediaPlayer().create()");
-    expect(panelSource).toContain("playerInstance.initialize(videoElement, videoUrl, false)");
+  afterEach(() => {
+    cleanup();
   });
 
-  it("video element is always muted (agent is the narrator)", () => {
-    expect(panelSource).toContain("muted");
-    expect(panelSource).toContain("playsInline");
+  it("renders video element with muted attribute for agent-narrated playback", () => {
+    renderVideoPlayerPanel();
+    const videoElement = document.getElementById(
+      "videoplayer_panel_video"
+    ) as HTMLVideoElement;
+    expect(videoElement).not.toBeNull();
+    expect(videoElement.tagName).toBe("VIDEO");
+    expect(videoElement.muted).toBe(true);
   });
 
-  it("calls onVideoElementReady with element on init and null on cleanup", () => {
-    expect(panelSource).toContain(
-      "onVideoElementReadyRef.current(videoElement)"
+  it("renders 'Video Demo' header identifying the panel", () => {
+    const { container } = renderVideoPlayerPanel();
+    const videoPlayerPanelHeader = container.querySelector("h2");
+    expect(videoPlayerPanelHeader).not.toBeNull();
+    expect(videoPlayerPanelHeader!.textContent).toBe("Video Demo");
+  });
+
+  it("shows 'playing' badge when isVideoPlaying is true", () => {
+    const { container } = renderVideoPlayerPanel({ isVideoPlaying: true });
+    const playingBadge = container.querySelector(
+      "#videoplayer_panel_root span"
     );
-    expect(panelSource).toContain("onVideoElementReadyRef.current(null)");
+    const allSpansText = Array.from(
+      container.querySelectorAll("#videoplayer_panel_root span")
+    ).map((span) => span.textContent);
+    expect(allSpansText).toContain("playing");
   });
 
-  it("destroys dashjs player on cleanup to prevent memory leaks", () => {
-    expect(panelSource).toContain("dashMediaPlayerInstance.destroy()");
+  it("hides 'playing' badge when isVideoPlaying is false", () => {
+    const { container } = renderVideoPlayerPanel({ isVideoPlaying: false });
+    const allSpansText = Array.from(
+      container.querySelectorAll("#videoplayer_panel_root span")
+    ).map((span) => span.textContent);
+    expect(allSpansText).not.toContain("playing");
   });
 
-  it("has structured logging for init and destroy failures", () => {
-    expect(panelSource).toContain('event: "dash_player_initialized"');
-    expect(panelSource).toContain('event: "dash_player_init_failed"');
-    expect(panelSource).toContain('event: "dash_player_destroy_failed"');
+  it("shows speed badge with value when videoPlaybackSpeed is not 1", () => {
+    const { container } = renderVideoPlayerPanel({
+      videoPlaybackSpeed: 1.5,
+    });
+    const allSpansText = Array.from(
+      container.querySelectorAll("#videoplayer_panel_root span")
+    ).map((span) => span.textContent);
+    expect(allSpansText).toContain("1.5x");
   });
 
-  it("has DOM IDs with videoplayer prefix per convention", () => {
-    expect(panelSource).toContain('id="videoplayer_panel_root"');
-    expect(panelSource).toContain('id="videoplayer_panel_video"');
-    expect(panelSource).toContain('id="videoplayer_panel_overlay"');
-  });
-
-  it("shows playing indicator when isVideoPlaying is true", () => {
-    expect(panelSource).toContain("{isVideoPlaying && (");
-    expect(panelSource).toContain("playing");
-  });
-
-  it("shows speed indicator when videoPlaybackSpeed is not 1", () => {
-    expect(panelSource).toContain("videoPlaybackSpeed !== 1");
-    expect(panelSource).toContain("{videoPlaybackSpeed}x");
-  });
-
-  it("renders overlay text when videoOverlayText is non-empty", () => {
-    expect(panelSource).toContain("{videoOverlayText && (");
-    expect(panelSource).toContain("{videoOverlayText}");
-  });
-
-  it("updates onVideoElementReady ref in useEffect (not during render)", () => {
-    expect(panelSource).toContain("useEffect(() => {");
-    expect(panelSource).toContain(
-      "onVideoElementReadyRef.current = onVideoElementReady"
+  it("hides speed badge when videoPlaybackSpeed is 1 (default)", () => {
+    const { container } = renderVideoPlayerPanel({ videoPlaybackSpeed: 1 });
+    const allSpansText = Array.from(
+      container.querySelectorAll("#videoplayer_panel_root span")
+    ).map((span) => span.textContent);
+    const speedBadgePresent = allSpansText.some((spanText) =>
+      /\d+(\.\d+)?x/.test(spanText || "")
     );
+    expect(speedBadgePresent).toBe(false);
+  });
+
+  it("shows overlay text when videoOverlayText is non-empty", () => {
+    renderVideoPlayerPanel({ videoOverlayText: "Key Feature: Auto-Stop" });
+    const overlayElement = document.getElementById(
+      "videoplayer_panel_overlay"
+    );
+    expect(overlayElement).not.toBeNull();
+    const overlayParagraph = overlayElement!.querySelector("p");
+    expect(overlayParagraph!.textContent).toBe("Key Feature: Auto-Stop");
+  });
+
+  it("hides overlay when videoOverlayText is empty", () => {
+    renderVideoPlayerPanel({ videoOverlayText: "" });
+    const overlayElement = document.getElementById(
+      "videoplayer_panel_overlay"
+    );
+    expect(overlayElement).toBeNull();
+  });
+
+  it("calls onVideoElementReady with the video element after dashjs init", async () => {
+    const onVideoElementReadySpy = vi.fn();
+    renderVideoPlayerPanel({
+      onVideoElementReady: onVideoElementReadySpy,
+    });
+
+    await act(async () => {
+      await vi.dynamicImportSettled();
+    });
+
+    expect(onVideoElementReadySpy).toHaveBeenCalledWith(
+      expect.any(HTMLVideoElement)
+    );
+  });
+
+  it("calls onVideoElementReady with null on unmount", async () => {
+    const onVideoElementReadySpy = vi.fn();
+    const { unmount } = renderVideoPlayerPanel({
+      onVideoElementReady: onVideoElementReadySpy,
+    });
+
+    await act(async () => {
+      await vi.dynamicImportSettled();
+    });
+
+    onVideoElementReadySpy.mockClear();
+    unmount();
+
+    expect(onVideoElementReadySpy).toHaveBeenCalledWith(null);
+  });
+
+  it("has correct DOM IDs for external selectors", () => {
+    renderVideoPlayerPanel();
+    expect(
+      document.getElementById("videoplayer_panel_root")
+    ).not.toBeNull();
+    expect(
+      document.getElementById("videoplayer_panel_video")
+    ).not.toBeNull();
+  });
+
+  it("renders both playing badge and speed badge simultaneously", () => {
+    const { container } = renderVideoPlayerPanel({
+      isVideoPlaying: true,
+      videoPlaybackSpeed: 2,
+    });
+    const allSpansText = Array.from(
+      container.querySelectorAll("#videoplayer_panel_root span")
+    ).map((span) => span.textContent);
+    expect(allSpansText).toContain("playing");
+    expect(allSpansText).toContain("2x");
   });
 });
