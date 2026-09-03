@@ -102,7 +102,8 @@ describe("dispatchVideoFunctionCall", () => {
       expect(videoFunctionResult).toContain("300 seconds");
     });
 
-    it("rejects NaN timestamp with error message", () => {
+    it("rejects NaN timestamp with error message and structured log", () => {
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const videoFunctionResult = dispatchVideoFunctionCall(
         mockVideoElement,
         "seek_and_play",
@@ -113,9 +114,15 @@ describe("dispatchVideoFunctionCall", () => {
       expect(videoFunctionResult).toContain("Invalid timestamp");
       expect(mockVideoElement.play).not.toHaveBeenCalled();
       expect(mockCallbacks.setVideoPlayerState).not.toHaveBeenCalled();
+      expect(consoleWarnSpy).toHaveBeenCalledOnce();
+      const parsedLogEntry = JSON.parse(consoleWarnSpy.mock.calls[0][0]);
+      expect(parsedLogEntry.event).toBe("video_seek_invalid_timestamp");
+      expect(parsedLogEntry.component).toBe("use_video_player");
+      consoleWarnSpy.mockRestore();
     });
 
-    it("rejects negative timestamp", () => {
+    it("rejects negative timestamp with structured log", () => {
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const videoFunctionResult = dispatchVideoFunctionCall(
         mockVideoElement,
         "seek_and_play",
@@ -125,6 +132,8 @@ describe("dispatchVideoFunctionCall", () => {
 
       expect(videoFunctionResult).toContain("Invalid timestamp");
       expect(mockVideoElement.play).not.toHaveBeenCalled();
+      expect(consoleWarnSpy).toHaveBeenCalledOnce();
+      consoleWarnSpy.mockRestore();
     });
 
     it("accepts timestamp zero as valid seek-to-start", () => {
@@ -257,7 +266,8 @@ describe("dispatchVideoFunctionCall", () => {
       }
     );
 
-    it("rejects speed=3 with error message listing allowed values", () => {
+    it("rejects speed=3 with error message, allowed values, and structured log", () => {
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const videoFunctionResult = dispatchVideoFunctionCall(
         mockVideoElement,
         "set_playback_speed",
@@ -268,9 +278,15 @@ describe("dispatchVideoFunctionCall", () => {
       expect(videoFunctionResult).toContain("Invalid speed");
       expect(videoFunctionResult).toContain("0.5, 1, 1.5, 2");
       expect(mockVideoElement.playbackRate).toBe(1);
+      expect(consoleWarnSpy).toHaveBeenCalledOnce();
+      const parsedLogEntry = JSON.parse(consoleWarnSpy.mock.calls[0][0]);
+      expect(parsedLogEntry.event).toBe("video_speed_invalid");
+      expect(parsedLogEntry.component).toBe("use_video_player");
+      consoleWarnSpy.mockRestore();
     });
 
-    it("rejects speed=0", () => {
+    it("rejects speed=0 with structured log", () => {
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const videoFunctionResult = dispatchVideoFunctionCall(
         mockVideoElement,
         "set_playback_speed",
@@ -279,9 +295,12 @@ describe("dispatchVideoFunctionCall", () => {
       );
 
       expect(videoFunctionResult).toContain("Invalid speed");
+      expect(consoleWarnSpy).toHaveBeenCalledOnce();
+      consoleWarnSpy.mockRestore();
     });
 
-    it("rejects non-numeric speed", () => {
+    it("rejects non-numeric speed with structured log", () => {
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const videoFunctionResult = dispatchVideoFunctionCall(
         mockVideoElement,
         "set_playback_speed",
@@ -290,6 +309,8 @@ describe("dispatchVideoFunctionCall", () => {
       );
 
       expect(videoFunctionResult).toContain("Invalid speed");
+      expect(consoleWarnSpy).toHaveBeenCalledOnce();
+      consoleWarnSpy.mockRestore();
     });
 
     it("return message includes the speed value", () => {

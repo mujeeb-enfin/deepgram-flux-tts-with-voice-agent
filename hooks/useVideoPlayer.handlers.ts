@@ -82,6 +82,17 @@ export function dispatchVideoFunctionCall(
         parsedArguments as unknown as SeekAndPlayArguments;
       const targetTimestamp = Number(seekArguments.timestamp_seconds);
       if (isNaN(targetTimestamp) || targetTimestamp < 0) {
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            component: "use_video_player",
+            event: "video_seek_invalid_timestamp",
+            payload: {
+              rawTimestamp: seekArguments.timestamp_seconds,
+              functionName,
+            },
+          })
+        );
         return `Invalid timestamp: ${seekArguments.timestamp_seconds}`;
       }
       const clampedTimestamp = Math.min(
@@ -166,6 +177,17 @@ export function dispatchVideoFunctionCall(
           requestedSpeed
         )
       ) {
+        console.warn(
+          JSON.stringify({
+            level: "warn",
+            component: "use_video_player",
+            event: "video_speed_invalid",
+            payload: {
+              rawSpeed: speedArguments.speed,
+              allowedSpeeds: ALLOWED_PLAYBACK_SPEEDS,
+            },
+          })
+        );
         return `Invalid speed: ${speedArguments.speed}. Allowed: ${ALLOWED_PLAYBACK_SPEEDS.join(", ")}`;
       }
       videoElement.playbackRate = requestedSpeed;

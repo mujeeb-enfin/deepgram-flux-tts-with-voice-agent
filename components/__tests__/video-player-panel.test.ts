@@ -71,9 +71,6 @@ describe("VideoPlayerPanel (component rendering)", () => {
 
   it("shows 'playing' badge when isVideoPlaying is true", () => {
     const { container } = renderVideoPlayerPanel({ isVideoPlaying: true });
-    const playingBadge = container.querySelector(
-      "#videoplayer_panel_root span"
-    );
     const allSpansText = Array.from(
       container.querySelectorAll("#videoplayer_panel_root span")
     ).map((span) => span.textContent);

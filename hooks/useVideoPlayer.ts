@@ -11,7 +11,6 @@ import {
 export type { VideoPlayerState };
 
 export function useVideoPlayer() {
-  const dashPlayerRef = useRef<unknown>(null);
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
