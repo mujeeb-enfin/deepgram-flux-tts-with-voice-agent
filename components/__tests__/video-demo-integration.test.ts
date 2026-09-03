@@ -4,7 +4,7 @@ import path from "path";
 import {
   buildVideoPromptSection,
   type ProductVideoConfig,
-} from "../FluxAgentBench";
+} from "@/lib/prompts/product-prompt";
 
 /* ------------------------------------------------------------------ */
 /*  buildVideoPromptSection — real function call assertions            */

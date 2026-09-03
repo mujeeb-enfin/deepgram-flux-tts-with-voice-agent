@@ -1,4 +1,5 @@
 import type { VideoFunctionName } from "@/lib/deepgram/function-call-types";
+import type { VideoSessionMetricsAccumulator } from "@/lib/video/session-metrics";
 
 export interface VideoPlayerState {
   isVideoPlaying: boolean;
@@ -6,6 +7,9 @@ export interface VideoPlayerState {
   videoOverlayText: string;
   isVideoLoading: boolean;
   isVideoEnded: boolean;
+  wasPausedByBargeIn: boolean;
+  lastNarratedChapterTimestampSeconds: number | null;
+  lastPausedAtSeconds: number | null;
 }
 
 export const INITIAL_VIDEO_PLAYER_STATE: VideoPlayerState = {
@@ -14,10 +18,15 @@ export const INITIAL_VIDEO_PLAYER_STATE: VideoPlayerState = {
   videoOverlayText: "",
   isVideoLoading: true,
   isVideoEnded: false,
+  wasPausedByBargeIn: false,
+  lastNarratedChapterTimestampSeconds: null,
+  lastPausedAtSeconds: null,
 };
 
 export const ALLOWED_PLAYBACK_SPEEDS = [0.5, 1, 1.5, 2] as const;
 export const DEFAULT_OVERLAY_DURATION_SECONDS = 5;
+export const RESUME_CONFIRMATION_TEXT = "Resuming demo...";
+export const RESUME_CONFIRMATION_DURATION_MS = 2000;
 
 interface SeekAndPlayArguments {
   timestamp_seconds: number;
@@ -38,13 +47,15 @@ export interface VideoFunctionCallbacks {
   ) => void;
   clearOverlayTimer: () => void;
   setOverlayTimer: (timer: ReturnType<typeof setTimeout>) => void;
+  metricsAccumulator?: VideoSessionMetricsAccumulator;
 }
 
 export function dispatchVideoFunctionCall(
   videoElement: HTMLVideoElement | null,
   functionName: string,
   argumentsJson: string,
-  callbacks: VideoFunctionCallbacks
+  callbacks: VideoFunctionCallbacks,
+  currentState: VideoPlayerState
 ): string {
   if (!videoElement) {
     console.warn(
@@ -118,11 +129,30 @@ export function dispatchVideoFunctionCall(
           })
         );
       });
+      if (currentState.wasPausedByBargeIn) {
+        callbacks.clearOverlayTimer();
+        callbacks.setOverlayTimer(
+          setTimeout(() => {
+            callbacks.setVideoPlayerState((prev) => ({
+              ...prev,
+              videoOverlayText: "",
+            }));
+          }, RESUME_CONFIRMATION_DURATION_MS)
+        );
+      }
       callbacks.setVideoPlayerState((prev) => ({
         ...prev,
         isVideoPlaying: true,
         isVideoEnded: false,
+        wasPausedByBargeIn: false,
+        lastNarratedChapterTimestampSeconds: clampedTimestamp,
+        lastPausedAtSeconds: null,
+        ...(currentState.wasPausedByBargeIn
+          ? { videoOverlayText: RESUME_CONFIRMATION_TEXT }
+          : {}),
       }));
+      callbacks.metricsAccumulator?.recordChapterSeek(clampedTimestamp);
+      callbacks.metricsAccumulator?.recordPlayStarted();
       console.info(
         JSON.stringify({
           level: "info",
@@ -135,23 +165,32 @@ export function dispatchVideoFunctionCall(
     }
 
     case "pause_video": {
+      const pausedAtCurrentTime = videoElement.currentTime;
       videoElement.pause();
       callbacks.setVideoPlayerState((prev) => ({
         ...prev,
         isVideoPlaying: false,
+        wasPausedByBargeIn: false,
+        lastPausedAtSeconds: pausedAtCurrentTime,
       }));
+      callbacks.metricsAccumulator?.recordPlayStopped();
       console.info(
         JSON.stringify({
           level: "info",
           component: "use_video_player",
           event: "video_paused",
-          payload: { currentTime: videoElement.currentTime },
+          payload: { currentTime: pausedAtCurrentTime },
         })
       );
-      return `Video paused at ${Math.round(videoElement.currentTime)} seconds.`;
+      const lastChapterContext =
+        currentState.lastNarratedChapterTimestampSeconds !== null
+          ? ` Last narrated chapter started at ${Math.round(currentState.lastNarratedChapterTimestampSeconds)} seconds.`
+          : "";
+      return `Video paused at ${Math.round(pausedAtCurrentTime)} seconds.${lastChapterContext}`;
     }
 
     case "resume_video": {
+      const resumeFromTime = videoElement.currentTime;
       videoElement.play().catch((videoResumeError) => {
         callbacks.setVideoPlayerState((prev) => ({
           ...prev,
@@ -166,20 +205,41 @@ export function dispatchVideoFunctionCall(
           })
         );
       });
+      if (currentState.wasPausedByBargeIn) {
+        callbacks.clearOverlayTimer();
+        callbacks.setOverlayTimer(
+          setTimeout(() => {
+            callbacks.setVideoPlayerState((prev) => ({
+              ...prev,
+              videoOverlayText: "",
+            }));
+          }, RESUME_CONFIRMATION_DURATION_MS)
+        );
+      }
       callbacks.setVideoPlayerState((prev) => ({
         ...prev,
         isVideoPlaying: true,
         isVideoEnded: false,
+        wasPausedByBargeIn: false,
+        lastPausedAtSeconds: null,
+        ...(currentState.wasPausedByBargeIn
+          ? { videoOverlayText: RESUME_CONFIRMATION_TEXT }
+          : {}),
       }));
+      callbacks.metricsAccumulator?.recordPlayStarted();
       console.info(
         JSON.stringify({
           level: "info",
           component: "use_video_player",
           event: "video_resumed",
-          payload: { currentTime: videoElement.currentTime },
+          payload: { currentTime: resumeFromTime },
         })
       );
-      return `Video resumed from ${Math.round(videoElement.currentTime)} seconds.`;
+      const lastChapterResumeContext =
+        currentState.lastNarratedChapterTimestampSeconds !== null
+          ? ` Last narrated chapter was at ${Math.round(currentState.lastNarratedChapterTimestampSeconds)} seconds.`
+          : "";
+      return `Video resumed from ${Math.round(resumeFromTime)} seconds.${lastChapterResumeContext}`;
     }
 
     case "set_playback_speed": {
@@ -209,6 +269,7 @@ export function dispatchVideoFunctionCall(
         ...prev,
         videoPlaybackSpeed: requestedSpeed,
       }));
+      callbacks.metricsAccumulator?.recordSpeedChange(requestedSpeed);
       console.info(
         JSON.stringify({
           level: "info",
@@ -242,6 +303,7 @@ export function dispatchVideoFunctionCall(
         }, overlayDurationSeconds * 1000)
       );
 
+      callbacks.metricsAccumulator?.recordOverlayText(overlayText);
       console.info(
         JSON.stringify({
           level: "info",
@@ -272,21 +334,26 @@ export function dispatchVideoFunctionCall(
 
 export function pauseVideoElementOnBargeIn(
   videoElement: HTMLVideoElement | null,
-  callbacks: Pick<VideoFunctionCallbacks, "setVideoPlayerState">
+  callbacks: Pick<VideoFunctionCallbacks, "setVideoPlayerState" | "metricsAccumulator">
 ): void {
   if (!videoElement || videoElement.paused) return;
 
+  const bargeInPauseTime = videoElement.currentTime;
   videoElement.pause();
   callbacks.setVideoPlayerState((prev) => ({
     ...prev,
     isVideoPlaying: false,
+    wasPausedByBargeIn: true,
+    lastPausedAtSeconds: bargeInPauseTime,
   }));
+  callbacks.metricsAccumulator?.recordBargeInPause(bargeInPauseTime);
+  callbacks.metricsAccumulator?.recordPlayStopped();
   console.info(
     JSON.stringify({
       level: "info",
       component: "use_video_player",
       event: "video_paused_on_barge_in",
-      payload: { currentTime: videoElement.currentTime },
+      payload: { currentTime: bargeInPauseTime },
     })
   );
 }

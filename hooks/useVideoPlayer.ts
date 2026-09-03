@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import {
   type VideoPlayerState,
   INITIAL_VIDEO_PLAYER_STATE,
@@ -8,16 +8,28 @@ import {
   resetVideoElement,
   pauseVideoElementOnBargeIn,
 } from "./useVideoPlayer.handlers";
+import {
+  createVideoSessionMetrics,
+  type VideoSessionMetricsAccumulator,
+} from "@/lib/video/session-metrics";
 
 export type { VideoPlayerState };
 
 export function useVideoPlayer() {
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const metricsAccumulatorRef = useRef<VideoSessionMetricsAccumulator | null>(
+    null
+  );
 
   const [videoPlayerState, setVideoPlayerState] = useState<VideoPlayerState>(
     INITIAL_VIDEO_PLAYER_STATE
   );
+
+  const videoPlayerStateRef = useRef(videoPlayerState);
+  useEffect(() => {
+    videoPlayerStateRef.current = videoPlayerState;
+  }, [videoPlayerState]);
 
   const clearOverlayTimer = useCallback(() => {
     if (overlayTimerRef.current) {
@@ -38,7 +50,9 @@ export function useVideoPlayer() {
           setOverlayTimer: (timer) => {
             overlayTimerRef.current = timer;
           },
-        }
+          metricsAccumulator: metricsAccumulatorRef.current ?? undefined,
+        },
+        videoPlayerStateRef.current
       );
     },
     [clearOverlayTimer]
@@ -47,6 +61,7 @@ export function useVideoPlayer() {
   const setVideoElement = useCallback((videoElement: HTMLVideoElement | null) => {
     videoElementRef.current = videoElement;
     if (videoElement) {
+      metricsAccumulatorRef.current = createVideoSessionMetrics();
       setVideoPlayerState((prev) => ({ ...prev, isVideoLoading: true }));
     }
   }, []);
@@ -54,14 +69,25 @@ export function useVideoPlayer() {
   const pauseVideoOnBargeIn = useCallback(() => {
     pauseVideoElementOnBargeIn(videoElementRef.current, {
       setVideoPlayerState,
+      metricsAccumulator: metricsAccumulatorRef.current ?? undefined,
     });
   }, []);
 
-  const handleVideoLoadStateChange = useCallback((isLoading: boolean) => {
-    setVideoPlayerState((prev) => ({ ...prev, isVideoLoading: isLoading }));
-  }, []);
+  const handleVideoLoadStateChange = useCallback(
+    (isLoading: boolean) => {
+      if (!isLoading && videoElementRef.current && metricsAccumulatorRef.current) {
+        const videoDuration = videoElementRef.current.duration;
+        if (Number.isFinite(videoDuration) && videoDuration > 0) {
+          metricsAccumulatorRef.current.setVideoDurationSeconds(videoDuration);
+        }
+      }
+      setVideoPlayerState((prev) => ({ ...prev, isVideoLoading: isLoading }));
+    },
+    []
+  );
 
   const handleVideoEnded = useCallback(() => {
+    metricsAccumulatorRef.current?.recordPlayStopped();
     setVideoPlayerState((prev) => ({
       ...prev,
       isVideoPlaying: false,
@@ -77,6 +103,13 @@ export function useVideoPlayer() {
   }, []);
 
   const resetVideoPlayer = useCallback(() => {
+    if (metricsAccumulatorRef.current) {
+      metricsAccumulatorRef.current.recordPlayStopped();
+      console.info(
+        JSON.stringify(metricsAccumulatorRef.current.toSummaryLog())
+      );
+      metricsAccumulatorRef.current = null;
+    }
     clearOverlayTimer();
     resetVideoElement(videoElementRef.current);
     setVideoPlayerState(INITIAL_VIDEO_PLAYER_STATE);

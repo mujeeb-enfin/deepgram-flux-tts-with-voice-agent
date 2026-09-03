@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { getDashjsModule } from "@/lib/dash/preload-dashjs";
 
 interface VideoPlayerPanelProps {
   videoUrl: string;
@@ -73,7 +74,7 @@ export function VideoPlayerPanel({
       videoElement.addEventListener("error", handleVideoError);
 
       try {
-        const dashjs = await import("dashjs");
+        const dashjs = await getDashjsModule();
         const playerInstance = dashjs.MediaPlayer().create();
         playerInstance.initialize(videoElement, videoUrl, false);
         playerInstance.updateSettings({
