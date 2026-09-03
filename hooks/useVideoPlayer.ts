@@ -112,7 +112,10 @@ export function useVideoPlayer() {
     }
     clearOverlayTimer();
     resetVideoElement(videoElementRef.current);
-    setVideoPlayerState(INITIAL_VIDEO_PLAYER_STATE);
+    setVideoPlayerState({
+      ...INITIAL_VIDEO_PLAYER_STATE,
+      isVideoLoading: false,
+    });
   }, [clearOverlayTimer]);
 
   return {
