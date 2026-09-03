@@ -10,6 +10,10 @@ import { SystemPromptPanel } from "@/components/SystemPromptPanel";
 import { TextInjectPanel } from "@/components/TextInjectPanel";
 import { LivePanel } from "@/components/LivePanel";
 import { EventLog } from "@/components/EventLog";
+import { VideoPlayerPanel } from "@/components/VideoPlayerPanel";
+import { useVideoPlayer } from "@/hooks/useVideoPlayer";
+import { buildVideoFunctionDefinitions } from "@/lib/deepgram/function-call-types";
+import type { DeepgramFunctionCallEntry } from "@/lib/deepgram/function-call-types";
 
 const DEFAULT_BEHAVIOR_PROMPT = `You are an AI voice agent having a live, real-time conversation with a user. Behave like a competent human speaking on a phone call, not like a text chatbot reading an answer aloud.
 
@@ -127,6 +131,17 @@ Prioritize, in this order:
 
 The conversation should feel natural enough that the user does not need to adapt how they speak in order to interact with you.`;
 
+export interface VideoChapter {
+  timestampSeconds: number;
+  title: string;
+  keywords: string[];
+}
+
+export interface ProductVideoConfig {
+  videoUrl: string;
+  videoChapters: VideoChapter[];
+}
+
 export interface ProductConfig {
   productName: string;
   description: string;
@@ -137,6 +152,7 @@ export interface ProductConfig {
   pricing: string;
   limits: string;
   facts: string[];
+  video?: ProductVideoConfig;
 }
 
 export interface AvailableProduct {
@@ -315,6 +331,46 @@ function buildProductPrompt(config: ProductConfig): string {
 
 export { buildProductPrompt };
 
+function buildVideoPromptSection(videoConfig: ProductVideoConfig): string {
+  const lines: string[] = [];
+
+  lines.push("## Video Demo Tools");
+  lines.push("");
+  lines.push("You have access to a product demo video that you can control while narrating. The video is muted — you are the narrator. Use these tools to show the relevant video sections as you explain the product:");
+  lines.push("");
+  lines.push("* **seek_and_play** — Jump to a specific timestamp and start playing. Use this to show the viewer the part of the video that matches what you are currently discussing.");
+  lines.push("* **pause_video** — Pause the video when you want the viewer to focus on your words rather than the video.");
+  lines.push("* **resume_video** — Resume playing from where the video was paused.");
+  lines.push("* **set_playback_speed** — Change playback speed (0.5x, 1x, 1.5x, or 2x). Use slower speed for complex demos, faster for simple transitions.");
+  lines.push("* **show_overlay_text** — Display a text overlay on the video to highlight key points, feature names, or specs.");
+  lines.push("");
+  lines.push("### Video chapter guide");
+  lines.push("");
+  lines.push("Use these chapters to find the right video section for each topic. When discussing a topic, seek to the matching chapter timestamp so the viewer sees the relevant video content:");
+  lines.push("");
+
+  for (const chapter of videoConfig.videoChapters) {
+    const minutesMark = Math.floor(chapter.timestampSeconds / 60);
+    const secondsMark = chapter.timestampSeconds % 60;
+    const formattedTimestamp = `${minutesMark}:${String(secondsMark).padStart(2, "0")}`;
+    lines.push(
+      `* **${formattedTimestamp}** (${chapter.timestampSeconds}s) — ${chapter.title} — keywords: ${chapter.keywords.join(", ")}`
+    );
+  }
+
+  lines.push("");
+  lines.push("### Video narration rules");
+  lines.push("");
+  lines.push("* When starting a demo or walkthrough, seek to the first relevant chapter and begin narrating.");
+  lines.push("* As you transition between product features, seek to the matching chapter so the video stays in sync with your narration.");
+  lines.push("* Use show_overlay_text to highlight key specs, feature names, or important details as you mention them.");
+  lines.push("* Pause the video when answering questions that do not relate to what is currently shown.");
+  lines.push("* Do not describe what is visually happening in the video in excessive detail — the viewer can see it. Focus on explaining the value and context.");
+  lines.push("* Never mention the tools by name. Say things like \"Let me show you\" or \"As you can see\" — not \"I am calling seek_and_play\".");
+
+  return lines.join("\n");
+}
+
 function getTimeOfDayGreeting(): string {
   const hour = new Date().getHours();
   if (hour < 12) return "Good morning";
@@ -351,14 +407,11 @@ export function FluxAgentBench({
   const initialProductConfig = defaultProduct?.config ?? EMPTY_PRODUCT_CONFIG;
 
   const [apiKeyValue] = useState(initialApiKey);
-  const [voiceModel, setVoiceModel] = useState(initialVoiceModel);
-  const regionVoiceAppliedRef = useRef(false);
-  useEffect(() => {
-    if (regionVoiceAppliedRef.current) return;
-    regionVoiceAppliedRef.current = true;
+  const [voiceModel, setVoiceModel] = useState(() => {
+    if (typeof navigator === "undefined") return initialVoiceModel;
     const regionVoice = getFluxVoiceForBrowserRegion();
-    if (regionVoice) setVoiceModel(regionVoice);
-  }, []);
+    return regionVoice ?? initialVoiceModel;
+  });
   const [thinkModel, setThinkModel] = useState(initialThinkModel);
   const [speed, setSpeed] = useState(initialSpeed);
   const [eotThreshold, setEotThreshold] = useState(initialEotThreshold);
@@ -382,6 +435,15 @@ export function FluxAgentBench({
   }, [productConfigJson, voiceModel, initialProductConfig.productName]);
   const greeting = greetingOverride ?? derivedGreeting;
   const [transcriptTurns, setTranscriptTurns] = useState<TranscriptTurn[]>([]);
+
+  const activeProductVideoConfig = useMemo<ProductVideoConfig | null>(() => {
+    try {
+      const parsed = JSON.parse(productConfigJson) as ProductConfig;
+      return parsed.video ?? null;
+    } catch {
+      return null;
+    }
+  }, [productConfigJson]);
 
 
   const handleProductFileChange = useCallback(
@@ -459,6 +521,14 @@ export function FluxAgentBench({
     audioContextRef.current = null;
   }, []);
 
+  const sendFunctionCallResponseRef = useRef<
+    (functionCallId: string, functionName: string, content: string) => void
+  >(() => {});
+  const handleVideoFunctionCallRef = useRef<
+    (functionName: string, argumentsJson: string) => string
+  >(() => "Video player not initialized");
+  const resetVideoPlayerRef = useRef<() => void>(() => {});
+
   const agentCallbacks = useMemo<DeepgramAgentCallbacks>(() => ({
     onAudioData: (buffer: ArrayBuffer) => {
       queueAudio(buffer);
@@ -515,6 +585,19 @@ export function FluxAgentBench({
         return newTurns;
       });
     },
+    onFunctionCallRequest: (functionCalls: DeepgramFunctionCallEntry[]) => {
+      for (const functionCall of functionCalls) {
+        const resultContent = handleVideoFunctionCallRef.current(
+          functionCall.name,
+          functionCall.arguments
+        );
+        sendFunctionCallResponseRef.current(
+          functionCall.id,
+          functionCall.name,
+          resultContent
+        );
+      }
+    },
     onDisconnected: () => {
       if (echoTailTimerRef.current) {
         clearTimeout(echoTailTimerRef.current);
@@ -525,6 +608,7 @@ export function FluxAgentBench({
       destroyPlayback();
       stopMeteringFnRef.current();
       releaseAudioContext();
+      resetVideoPlayerRef.current();
       isAgentSpeakingRef.current = false;
       lastAgentTurnIndexRef.current = null;
     },
@@ -539,6 +623,7 @@ export function FluxAgentBench({
     sendAudioChunk,
     injectUserMessage,
     updatePrompt,
+    sendFunctionCallResponse,
     clearLog,
   } = useDeepgramAgent(agentCallbacks);
 
@@ -546,6 +631,13 @@ export function FluxAgentBench({
     useMicrophone(sendAudioChunk);
 
   const { userLevel, agentLevel, startMetering, stopMetering } = useVuMeter();
+
+  const {
+    videoPlayerState,
+    setVideoElement,
+    handleVideoFunctionCall,
+    resetVideoPlayer,
+  } = useVideoPlayer();
 
   const startMicFnRef = useRef((_audioContext: AudioContext) => {
     return Promise.resolve();
@@ -571,6 +663,9 @@ export function FluxAgentBench({
     };
     stopMicFnRef.current = stopMic;
     setMicSuppressedRef.current = setMicSuppressed;
+    sendFunctionCallResponseRef.current = sendFunctionCallResponse;
+    handleVideoFunctionCallRef.current = handleVideoFunctionCall;
+    resetVideoPlayerRef.current = resetVideoPlayer;
     startMeteringFnRef.current = () => {
       startMetering(micAnalyserRef, playbackAnalyserRef, () => isMicMutedRef.current);
     };
@@ -579,17 +674,26 @@ export function FluxAgentBench({
 
   const buildCombinedPrompt = useCallback(() => {
     let productSection = "";
+    let videoPromptSection = "";
     try {
       const parsed = JSON.parse(productConfigJson) as ProductConfig;
       productSection = buildProductPrompt(parsed);
+      if (parsed.video && parsed.video.videoChapters.length > 0) {
+        videoPromptSection = buildVideoPromptSection(parsed.video);
+      }
     } catch {
       productSection = productConfigJson.trim();
     }
-    return [behaviorPrompt.trim(), productSection].filter(Boolean).join("\n\n");
+    return [behaviorPrompt.trim(), productSection, videoPromptSection]
+      .filter(Boolean)
+      .join("\n\n");
   }, [behaviorPrompt, productConfigJson]);
 
   const handleConnect = useCallback(() => {
     setTranscriptTurns([]);
+    const videoFunctions = activeProductVideoConfig
+      ? buildVideoFunctionDefinitions()
+      : undefined;
     connect(apiKeyValue, {
       voiceModel,
       thinkModel,
@@ -597,8 +701,9 @@ export function FluxAgentBench({
       eotThreshold: parseFloat(eotThreshold),
       systemPrompt: buildCombinedPrompt(),
       greeting: greeting.trim(),
+      functions: videoFunctions,
     });
-  }, [apiKeyValue, voiceModel, thinkModel, speed, eotThreshold, buildCombinedPrompt, greeting, connect]);
+  }, [apiKeyValue, voiceModel, thinkModel, speed, eotThreshold, buildCombinedPrompt, greeting, connect, activeProductVideoConfig]);
 
   const handleApplyPromptLive = useCallback(() => {
     updatePrompt(buildCombinedPrompt());
@@ -665,6 +770,16 @@ export function FluxAgentBench({
         </div>
 
         <div className="space-y-3.5">
+          {activeProductVideoConfig && (
+            <VideoPlayerPanel
+              videoUrl={activeProductVideoConfig.videoUrl}
+              onVideoElementReady={setVideoElement}
+              isVideoPlaying={videoPlayerState.isVideoPlaying}
+              videoPlaybackSpeed={videoPlayerState.videoPlaybackSpeed}
+              videoOverlayText={videoPlayerState.videoOverlayText}
+            />
+          )}
+
           <LivePanel
             currentPhase={currentPhase}
             userLevel={userLevel}

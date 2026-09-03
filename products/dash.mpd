@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" mediaPresentationDuration="PT160.861S">
+  <Period start="PT0S">
+    <AdaptationSet mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+
+      <Representation id="video_144p" bandwidth="100000" width="256" height="144" codecs="avc1.42c01e">
+        <BaseURL>https://d1xi8ly8yzrjik.cloudfront.net/transcode/11-krature/video_144p/</BaseURL>
+        <SegmentTemplate media="video_144p_$Number$.m4s" initialization="video_144p_init.mp4" startNumber="1" timescale="1000" duration="4000"/>
+      </Representation>
+      <Representation id="video_240p" bandwidth="200000" width="426" height="240" codecs="avc1.42c01e">
+        <BaseURL>https://d1xi8ly8yzrjik.cloudfront.net/transcode/11-krature/video_240p/</BaseURL>
+        <SegmentTemplate media="video_240p_$Number$.m4s" initialization="video_240p_init.mp4" startNumber="1" timescale="1000" duration="4000"/>
+      </Representation>
+      <Representation id="video_360p" bandwidth="400000" width="640" height="360" codecs="avc1.42c01e">
+        <BaseURL>https://d1xi8ly8yzrjik.cloudfront.net/transcode/11-krature/video_360p/</BaseURL>
+        <SegmentTemplate media="video_360p_$Number$.m4s" initialization="video_360p_init.mp4" startNumber="1" timescale="1000" duration="4000"/>
+      </Representation>
+      <Representation id="video_480p" bandwidth="800000" width="854" height="480" codecs="avc1.42c01e">
+        <BaseURL>https://d1xi8ly8yzrjik.cloudfront.net/transcode/11-krature/video_480p/</BaseURL>
+        <SegmentTemplate media="video_480p_$Number$.m4s" initialization="video_480p_init.mp4" startNumber="1" timescale="1000" duration="4000"/>
+      </Representation>
+      <Representation id="video_720p" bandwidth="1500000" width="1280" height="720" codecs="avc1.42c01e">
+        <BaseURL>https://d1xi8ly8yzrjik.cloudfront.net/transcode/11-krature/video_720p/</BaseURL>
+        <SegmentTemplate media="video_720p_$Number$.m4s" initialization="video_720p_init.mp4" startNumber="1" timescale="1000" duration="4000"/>
+      </Representation>
+      <Representation id="video_1080p" bandwidth="3000000" width="1920" height="1080" codecs="avc1.42c01e">
+        <BaseURL>https://d1xi8ly8yzrjik.cloudfront.net/transcode/11-krature/video_1080p/</BaseURL>
+        <SegmentTemplate media="video_1080p_$Number$.m4s" initialization="video_1080p_init.mp4" startNumber="1" timescale="1000" duration="4000"/>
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet mimeType="audio/mp4" segmentAlignment="true">
+
+      <Representation id="video_1080p_audio" bandwidth="128000" codecs="mp4a.40.2">
+        <BaseURL>https://d1xi8ly8yzrjik.cloudfront.net/transcode/11-krature/video_1080p/</BaseURL>
+        <SegmentTemplate media="audio_$Number$.m4s" initialization="audio_init.mp4" startNumber="1" timescale="1000" duration="4000"/>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useCallback, useState } from "react";
+import type { DeepgramFunctionDefinition, DeepgramFunctionCallEntry } from "@/lib/deepgram/function-call-types";
 
 const DEEPGRAM_AGENT_URL = "wss://agent.deepgram.com/v1/agent/converse";
 const INPUT_SAMPLE_RATE = 16000;
@@ -16,6 +17,7 @@ export interface AgentSettings {
   eotThreshold: number;
   systemPrompt: string;
   greeting: string;
+  functions?: DeepgramFunctionDefinition[];
 }
 
 export interface LogEntry {
@@ -38,6 +40,7 @@ export interface DeepgramAgentCallbacks {
   onAgentAudioDone: () => void;
   onConversationText: (role: "user" | "agent", content: string) => void;
   onDisconnected: () => void;
+  onFunctionCallRequest?: (functionCalls: DeepgramFunctionCallEntry[]) => void;
 }
 
 export function useDeepgramAgent(callbacks: DeepgramAgentCallbacks) {
@@ -132,6 +135,9 @@ export function useDeepgramAgent(callbacks: DeepgramAgentCallbacks) {
             think: {
               provider: { type: "open_ai", model: settings.thinkModel },
               prompt: settings.systemPrompt,
+              ...(settings.functions && settings.functions.length > 0
+                ? { functions: settings.functions }
+                : {}),
             },
             speak: {
               provider: {
@@ -235,6 +241,21 @@ export function useDeepgramAgent(callbacks: DeepgramAgentCallbacks) {
           case "Warning":
             addLogEntry(`<- Warning - ${(parsed.description as string) || ""}`, "bad");
             break;
+          case "FunctionCallRequest": {
+            const functionCalls = (
+              parsed.functions as DeepgramFunctionCallEntry[] | undefined
+            )?.filter((fc) => fc.client_side);
+            if (functionCalls && functionCalls.length > 0) {
+              addLogEntry(
+                `<- FunctionCallRequest [${functionCalls.map((fc) => fc.name).join(", ")}]`,
+                "hi"
+              );
+              callbacks.onFunctionCallRequest?.(functionCalls);
+            } else {
+              addLogEntry("<- FunctionCallRequest (no client-side functions)");
+            }
+            break;
+          }
           default:
             addLogEntry(`<- ${parsed.type}`);
         }
@@ -297,6 +318,23 @@ export function useDeepgramAgent(callbacks: DeepgramAgentCallbacks) {
     [addLogEntry]
   );
 
+  const sendFunctionCallResponse = useCallback(
+    (functionCallId: string, functionName: string, content: string) => {
+      const ws = websocketRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(
+        JSON.stringify({
+          type: "FunctionCallResponse",
+          id: functionCallId,
+          name: functionName,
+          content,
+        })
+      );
+      addLogEntry(`-> FunctionCallResponse [${functionName}]`);
+    },
+    [addLogEntry]
+  );
+
   return {
     connectionState,
     currentPhase,
@@ -306,6 +344,7 @@ export function useDeepgramAgent(callbacks: DeepgramAgentCallbacks) {
     sendAudioChunk,
     injectUserMessage,
     updatePrompt,
+    sendFunctionCallResponse,
     clearLog,
   };
 }
