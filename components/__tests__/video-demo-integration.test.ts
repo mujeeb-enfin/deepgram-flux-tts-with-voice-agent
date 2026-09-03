@@ -65,6 +65,13 @@ describe("buildVideoPromptSection (prompt generation for LLM)", () => {
     );
   });
 
+  it("includes barge-in auto-pause rule so LLM knows to resume after interruptions", () => {
+    expect(generatedPromptSection).toContain(
+      "the video automatically pauses"
+    );
+    expect(generatedPromptSection).toContain("resume_video");
+  });
+
   it("starts with Video Demo Tools header", () => {
     expect(generatedPromptSection).toMatch(/^## Video Demo Tools/);
   });

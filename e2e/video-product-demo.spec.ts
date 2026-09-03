@@ -154,9 +154,26 @@ test.describe("VideoPlayerPanel DOM structure and DASH init", () => {
     await expect(playingIndicator).not.toBeVisible();
   });
 
-  test("overlay is NOT rendered when no overlay text is set", async ({ page }) => {
+  test("overlay element is always in the DOM with opacity-0 when no text is set", async ({ page }) => {
     const overlayElement = page.locator("#videoplayer_panel_overlay");
-    await expect(overlayElement).not.toBeVisible();
+    await expect(overlayElement).toBeAttached();
+    await expect(overlayElement).toHaveClass(/opacity-0/);
+    await expect(overlayElement).toHaveClass(/pointer-events-none/);
+  });
+
+  test("loading indicator disappears after DASH manifest loads", async ({ page }) => {
+    await page.waitForFunction(() => {
+      const videoEl = document.getElementById("videoplayer_panel_video") as HTMLVideoElement;
+      return videoEl && videoEl.readyState >= 1;
+    }, { timeout: 15_000 });
+
+    const loadingIndicator = page.locator("#videoplayer_panel_loading");
+    await expect(loadingIndicator).not.toBeAttached();
+  });
+
+  test("ended badge is NOT shown on initial load (video has not played yet)", async ({ page }) => {
+    const endedBadge = page.locator("#videoplayer_panel_endedBadge");
+    await expect(endedBadge).not.toBeAttached();
   });
 });
 

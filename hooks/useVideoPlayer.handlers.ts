@@ -4,12 +4,16 @@ export interface VideoPlayerState {
   isVideoPlaying: boolean;
   videoPlaybackSpeed: number;
   videoOverlayText: string;
+  isVideoLoading: boolean;
+  isVideoEnded: boolean;
 }
 
 export const INITIAL_VIDEO_PLAYER_STATE: VideoPlayerState = {
   isVideoPlaying: false,
   videoPlaybackSpeed: 1,
   videoOverlayText: "",
+  isVideoLoading: true,
+  isVideoEnded: false,
 };
 
 export const ALLOWED_PLAYBACK_SPEEDS = [0.5, 1, 1.5, 2] as const;
@@ -101,6 +105,10 @@ export function dispatchVideoFunctionCall(
       );
       videoElement.currentTime = clampedTimestamp;
       videoElement.play().catch((videoPlayError) => {
+        callbacks.setVideoPlayerState((prev) => ({
+          ...prev,
+          isVideoPlaying: false,
+        }));
         console.warn(
           JSON.stringify({
             level: "warn",
@@ -113,6 +121,7 @@ export function dispatchVideoFunctionCall(
       callbacks.setVideoPlayerState((prev) => ({
         ...prev,
         isVideoPlaying: true,
+        isVideoEnded: false,
       }));
       console.info(
         JSON.stringify({
@@ -144,6 +153,10 @@ export function dispatchVideoFunctionCall(
 
     case "resume_video": {
       videoElement.play().catch((videoResumeError) => {
+        callbacks.setVideoPlayerState((prev) => ({
+          ...prev,
+          isVideoPlaying: false,
+        }));
         console.warn(
           JSON.stringify({
             level: "warn",
@@ -156,6 +169,7 @@ export function dispatchVideoFunctionCall(
       callbacks.setVideoPlayerState((prev) => ({
         ...prev,
         isVideoPlaying: true,
+        isVideoEnded: false,
       }));
       console.info(
         JSON.stringify({
@@ -254,6 +268,27 @@ export function dispatchVideoFunctionCall(
       return `Unknown video function: ${functionName}`;
     }
   }
+}
+
+export function pauseVideoElementOnBargeIn(
+  videoElement: HTMLVideoElement | null,
+  callbacks: Pick<VideoFunctionCallbacks, "setVideoPlayerState">
+): void {
+  if (!videoElement || videoElement.paused) return;
+
+  videoElement.pause();
+  callbacks.setVideoPlayerState((prev) => ({
+    ...prev,
+    isVideoPlaying: false,
+  }));
+  console.info(
+    JSON.stringify({
+      level: "info",
+      component: "use_video_player",
+      event: "video_paused_on_barge_in",
+      payload: { currentTime: videoElement.currentTime },
+    })
+  );
 }
 
 export function resetVideoElement(videoElement: HTMLVideoElement | null): void {

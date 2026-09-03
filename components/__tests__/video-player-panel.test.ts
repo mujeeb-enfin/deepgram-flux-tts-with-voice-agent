@@ -27,6 +27,10 @@ function renderVideoPlayerPanel(
     isVideoPlaying: boolean;
     videoPlaybackSpeed: number;
     videoOverlayText: string;
+    isVideoLoading: boolean;
+    isVideoEnded: boolean;
+    onVideoLoadStateChange: (isLoading: boolean) => void;
+    onVideoEnded: () => void;
   }> = {}
 ) {
   const defaultProps = {
@@ -35,6 +39,10 @@ function renderVideoPlayerPanel(
     isVideoPlaying: false,
     videoPlaybackSpeed: 1,
     videoOverlayText: "",
+    isVideoLoading: false,
+    isVideoEnded: false,
+    onVideoLoadStateChange: vi.fn(),
+    onVideoEnded: vi.fn(),
     ...propOverrides,
   };
   return {
@@ -116,12 +124,14 @@ describe("VideoPlayerPanel (component rendering)", () => {
     expect(overlayParagraph!.textContent).toBe("Key Feature: Auto-Stop");
   });
 
-  it("hides overlay when videoOverlayText is empty", () => {
+  it("fades overlay to invisible when videoOverlayText is empty", () => {
     renderVideoPlayerPanel({ videoOverlayText: "" });
     const overlayElement = document.getElementById(
       "videoplayer_panel_overlay"
     );
-    expect(overlayElement).toBeNull();
+    expect(overlayElement).not.toBeNull();
+    expect(overlayElement!.className).toContain("opacity-0");
+    expect(overlayElement!.className).toContain("pointer-events-none");
   });
 
   it("calls onVideoElementReady with the video element after dashjs init", async () => {
@@ -175,5 +185,65 @@ describe("VideoPlayerPanel (component rendering)", () => {
     ).map((span) => span.textContent);
     expect(allSpansText).toContain("playing");
     expect(allSpansText).toContain("2x");
+  });
+
+  it("shows loading spinner when isVideoLoading is true", () => {
+    renderVideoPlayerPanel({ isVideoLoading: true });
+    const loadingElement = document.getElementById(
+      "videoplayer_panel_loading"
+    );
+    expect(loadingElement).not.toBeNull();
+    expect(loadingElement!.textContent).toContain("Loading demo video");
+  });
+
+  it("hides loading spinner when isVideoLoading is false", () => {
+    renderVideoPlayerPanel({ isVideoLoading: false });
+    const loadingElement = document.getElementById(
+      "videoplayer_panel_loading"
+    );
+    expect(loadingElement).toBeNull();
+  });
+
+  it("shows 'ended' badge when isVideoEnded is true and not playing", () => {
+    const { container } = renderVideoPlayerPanel({
+      isVideoEnded: true,
+      isVideoPlaying: false,
+    });
+    const endedBadge = document.getElementById(
+      "videoplayer_panel_endedBadge"
+    );
+    expect(endedBadge).not.toBeNull();
+    expect(endedBadge!.textContent).toBe("ended");
+  });
+
+  it("hides 'ended' badge when video is playing (even if ended was set)", () => {
+    renderVideoPlayerPanel({
+      isVideoEnded: true,
+      isVideoPlaying: true,
+    });
+    const endedBadge = document.getElementById(
+      "videoplayer_panel_endedBadge"
+    );
+    expect(endedBadge).toBeNull();
+  });
+
+  it("overlay has opacity-100 when text is present (fade visible)", () => {
+    renderVideoPlayerPanel({ videoOverlayText: "Feature highlight" });
+    const overlayElement = document.getElementById(
+      "videoplayer_panel_overlay"
+    );
+    expect(overlayElement).not.toBeNull();
+    expect(overlayElement!.className).toContain("opacity-100");
+    expect(overlayElement!.className).not.toContain("pointer-events-none");
+  });
+
+  it("overlay has transition-opacity for smooth fade animation", () => {
+    renderVideoPlayerPanel({ videoOverlayText: "" });
+    const overlayElement = document.getElementById(
+      "videoplayer_panel_overlay"
+    );
+    expect(overlayElement).not.toBeNull();
+    expect(overlayElement!.className).toContain("transition-opacity");
+    expect(overlayElement!.className).toContain("duration-200");
   });
 });

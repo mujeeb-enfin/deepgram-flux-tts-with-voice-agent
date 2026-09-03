@@ -6,6 +6,7 @@ import {
   INITIAL_VIDEO_PLAYER_STATE,
   dispatchVideoFunctionCall,
   resetVideoElement,
+  pauseVideoElementOnBargeIn,
 } from "./useVideoPlayer.handlers";
 
 export type { VideoPlayerState };
@@ -45,6 +46,34 @@ export function useVideoPlayer() {
 
   const setVideoElement = useCallback((videoElement: HTMLVideoElement | null) => {
     videoElementRef.current = videoElement;
+    if (videoElement) {
+      setVideoPlayerState((prev) => ({ ...prev, isVideoLoading: true }));
+    }
+  }, []);
+
+  const pauseVideoOnBargeIn = useCallback(() => {
+    pauseVideoElementOnBargeIn(videoElementRef.current, {
+      setVideoPlayerState,
+    });
+  }, []);
+
+  const handleVideoLoadStateChange = useCallback((isLoading: boolean) => {
+    setVideoPlayerState((prev) => ({ ...prev, isVideoLoading: isLoading }));
+  }, []);
+
+  const handleVideoEnded = useCallback(() => {
+    setVideoPlayerState((prev) => ({
+      ...prev,
+      isVideoPlaying: false,
+      isVideoEnded: true,
+    }));
+    console.info(
+      JSON.stringify({
+        level: "info",
+        component: "use_video_player",
+        event: "video_playback_ended",
+      })
+    );
   }, []);
 
   const resetVideoPlayer = useCallback(() => {
@@ -57,6 +86,9 @@ export function useVideoPlayer() {
     videoPlayerState,
     setVideoElement,
     handleVideoFunctionCall,
+    pauseVideoOnBargeIn,
+    handleVideoLoadStateChange,
+    handleVideoEnded,
     resetVideoPlayer,
   };
 }

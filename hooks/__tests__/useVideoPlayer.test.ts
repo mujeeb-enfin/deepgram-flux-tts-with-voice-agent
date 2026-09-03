@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   dispatchVideoFunctionCall,
   resetVideoElement,
+  pauseVideoElementOnBargeIn,
   INITIAL_VIDEO_PLAYER_STATE,
   ALLOWED_PLAYBACK_SPEEDS,
   DEFAULT_OVERLAY_DURATION_SECONDS,
@@ -170,6 +171,45 @@ describe("dispatchVideoFunctionCall", () => {
 
       expect(videoFunctionResult).toMatch(/Video is now playing from 72 seconds/);
     });
+
+    it("resets isVideoEnded to false when seeking to a new position", () => {
+      const endedBaseState: VideoPlayerState = {
+        ...INITIAL_VIDEO_PLAYER_STATE,
+        isVideoEnded: true,
+        isVideoPlaying: false,
+      };
+
+      dispatchVideoFunctionCall(
+        mockVideoElement,
+        "seek_and_play",
+        '{"timestamp_seconds": 10}',
+        mockCallbacks
+      );
+
+      const updatedState = applyStateUpdate(mockCallbacks, endedBaseState);
+      expect(updatedState.isVideoEnded).toBe(false);
+      expect(updatedState.isVideoPlaying).toBe(true);
+    });
+
+    it("reverts isVideoPlaying to false when play() promise rejects", async () => {
+      const rejectingVideoElement = createMockVideoElement({
+        play: vi.fn().mockRejectedValue(new DOMException("NotAllowedError")),
+      } as unknown as Partial<HTMLVideoElement>);
+
+      dispatchVideoFunctionCall(
+        rejectingVideoElement,
+        "seek_and_play",
+        '{"timestamp_seconds": 10}',
+        mockCallbacks
+      );
+
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      await vi.runAllTimersAsync();
+
+      const finalState = applyStateUpdate(mockCallbacks);
+      expect(finalState.isVideoPlaying).toBe(false);
+      consoleWarnSpy.mockRestore();
+    });
   });
 
   /* ------------------------------------------------------------------ */
@@ -243,6 +283,45 @@ describe("dispatchVideoFunctionCall", () => {
       );
 
       expect(pausedAtElement.currentTime).toBe(42);
+    });
+
+    it("resets isVideoEnded to false when resuming after video ended", () => {
+      const endedBaseState: VideoPlayerState = {
+        ...INITIAL_VIDEO_PLAYER_STATE,
+        isVideoEnded: true,
+        isVideoPlaying: false,
+      };
+
+      dispatchVideoFunctionCall(
+        mockVideoElement,
+        "resume_video",
+        "{}",
+        mockCallbacks
+      );
+
+      const updatedState = applyStateUpdate(mockCallbacks, endedBaseState);
+      expect(updatedState.isVideoEnded).toBe(false);
+      expect(updatedState.isVideoPlaying).toBe(true);
+    });
+
+    it("reverts isVideoPlaying to false when resume play() rejects", async () => {
+      const rejectingVideoElement = createMockVideoElement({
+        play: vi.fn().mockRejectedValue(new DOMException("NotAllowedError")),
+      } as unknown as Partial<HTMLVideoElement>);
+
+      dispatchVideoFunctionCall(
+        rejectingVideoElement,
+        "resume_video",
+        "{}",
+        mockCallbacks
+      );
+
+      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      await vi.runAllTimersAsync();
+
+      const finalState = applyStateUpdate(mockCallbacks);
+      expect(finalState.isVideoPlaying).toBe(false);
+      consoleWarnSpy.mockRestore();
     });
   });
 
@@ -487,5 +566,63 @@ describe("resetVideoElement", () => {
 
   it("handles null element without throwing", () => {
     expect(() => resetVideoElement(null)).not.toThrow();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  pauseVideoElementOnBargeIn                                        */
+/* ------------------------------------------------------------------ */
+describe("pauseVideoElementOnBargeIn", () => {
+  it("pauses a playing video and sets isVideoPlaying to false", () => {
+    const playingVideoElement = createMockVideoElement({
+      paused: false,
+      currentTime: 25,
+    } as Partial<HTMLVideoElement>);
+    const bargeInCallbacks = createMockCallbacks();
+
+    pauseVideoElementOnBargeIn(playingVideoElement, bargeInCallbacks);
+
+    expect(playingVideoElement.pause).toHaveBeenCalledOnce();
+    const updatedState = applyStateUpdate(bargeInCallbacks, {
+      ...INITIAL_VIDEO_PLAYER_STATE,
+      isVideoPlaying: true,
+    });
+    expect(updatedState.isVideoPlaying).toBe(false);
+  });
+
+  it("emits structured log with currentTime when pausing on barge-in", () => {
+    const consoleInfoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const playingVideoElement = createMockVideoElement({
+      paused: false,
+      currentTime: 42.5,
+    } as Partial<HTMLVideoElement>);
+    const bargeInCallbacks = createMockCallbacks();
+
+    pauseVideoElementOnBargeIn(playingVideoElement, bargeInCallbacks);
+
+    expect(consoleInfoSpy).toHaveBeenCalledOnce();
+    const parsedLogEntry = JSON.parse(consoleInfoSpy.mock.calls[0][0]);
+    expect(parsedLogEntry.event).toBe("video_paused_on_barge_in");
+    expect(parsedLogEntry.component).toBe("use_video_player");
+    expect(parsedLogEntry.payload.currentTime).toBe(42.5);
+    consoleInfoSpy.mockRestore();
+  });
+
+  it("does nothing when video is already paused", () => {
+    const pausedVideoElement = createMockVideoElement({ paused: true } as Partial<HTMLVideoElement>);
+    const bargeInCallbacks = createMockCallbacks();
+
+    pauseVideoElementOnBargeIn(pausedVideoElement, bargeInCallbacks);
+
+    expect(pausedVideoElement.pause).not.toHaveBeenCalled();
+    expect(bargeInCallbacks.setVideoPlayerState).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when video element is null", () => {
+    const bargeInCallbacks = createMockCallbacks();
+
+    pauseVideoElementOnBargeIn(null, bargeInCallbacks);
+
+    expect(bargeInCallbacks.setVideoPlayerState).not.toHaveBeenCalled();
   });
 });

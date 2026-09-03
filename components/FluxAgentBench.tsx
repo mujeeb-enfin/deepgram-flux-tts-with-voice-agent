@@ -365,6 +365,7 @@ function buildVideoPromptSection(videoConfig: ProductVideoConfig): string {
   lines.push("* As you transition between product features, seek to the matching chapter so the video stays in sync with your narration.");
   lines.push("* Use show_overlay_text to highlight key specs, feature names, or important details as you mention them.");
   lines.push("* Pause the video when answering questions that do not relate to what is currently shown.");
+  lines.push("* When the prospect interrupts you, the video automatically pauses. After answering their question, use resume_video to continue from where it paused, or seek_and_play to jump to a different chapter if the conversation shifted topics.");
   lines.push("* Do not describe what is visually happening in the video in excessive detail — the viewer can see it. Focus on explaining the value and context.");
   lines.push("* Never mention the tools by name. Say things like \"Let me show you\" or \"As you can see\" — not \"I am calling seek_and_play\".");
 
@@ -528,6 +529,7 @@ export function FluxAgentBench({
     (functionName: string, argumentsJson: string) => string
   >(() => "Video player not initialized");
   const resetVideoPlayerRef = useRef<() => void>(() => {});
+  const pauseVideoOnBargeInRef = useRef<() => void>(() => {});
 
   const agentCallbacks = useMemo<DeepgramAgentCallbacks>(() => ({
     onAudioData: (buffer: ArrayBuffer) => {
@@ -544,6 +546,7 @@ export function FluxAgentBench({
         clearTimeout(echoTailTimerRef.current);
         echoTailTimerRef.current = null;
       }
+      pauseVideoOnBargeInRef.current();
       setMicSuppressedRef.current(false);
       const hadAudio = stopPlayback();
       if (isAgentSpeakingRef.current && hadAudio) {
@@ -636,6 +639,9 @@ export function FluxAgentBench({
     videoPlayerState,
     setVideoElement,
     handleVideoFunctionCall,
+    pauseVideoOnBargeIn,
+    handleVideoLoadStateChange,
+    handleVideoEnded,
     resetVideoPlayer,
   } = useVideoPlayer();
 
@@ -666,6 +672,7 @@ export function FluxAgentBench({
     sendFunctionCallResponseRef.current = sendFunctionCallResponse;
     handleVideoFunctionCallRef.current = handleVideoFunctionCall;
     resetVideoPlayerRef.current = resetVideoPlayer;
+    pauseVideoOnBargeInRef.current = pauseVideoOnBargeIn;
     startMeteringFnRef.current = () => {
       startMetering(micAnalyserRef, playbackAnalyserRef, () => isMicMutedRef.current);
     };
@@ -777,6 +784,10 @@ export function FluxAgentBench({
               isVideoPlaying={videoPlayerState.isVideoPlaying}
               videoPlaybackSpeed={videoPlayerState.videoPlaybackSpeed}
               videoOverlayText={videoPlayerState.videoOverlayText}
+              isVideoLoading={videoPlayerState.isVideoLoading}
+              isVideoEnded={videoPlayerState.isVideoEnded}
+              onVideoLoadStateChange={handleVideoLoadStateChange}
+              onVideoEnded={handleVideoEnded}
             />
           )}
 
